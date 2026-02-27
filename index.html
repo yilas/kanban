@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v3.9</title>
+    <title>Kanban System v4.0</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -74,20 +74,23 @@
       }
       .main-col {
         flex: 1;
-        min-width: 500px;
+        min-width: 520px;
         background: var(--panel);
         border-radius: 8px;
         border: 1px solid var(--border);
         padding: 12px;
       }
       .main-col-header {
-        margin-bottom: 12px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 15px;
         font-weight: 600;
         font-size: 0.9rem;
-        text-align: center;
         color: var(--accent);
       }
 
+      /* Grid: P1, P2, P3 */
       .sub-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -98,6 +101,7 @@
         flex-direction: column;
         gap: 5px;
       }
+
       .sub-col {
         min-height: 180px;
         background: rgba(0, 0, 0, 0.02);
@@ -108,6 +112,20 @@
       .sub-col.drag-over {
         border-color: var(--accent);
         background: rgba(0, 121, 191, 0.1);
+      }
+      .sub-col.is-done {
+        opacity: 0.6;
+        background: rgba(0, 0, 0, 0.05);
+      }
+
+      .sub-title {
+        font-size: 0.6rem;
+        text-align: center;
+        margin-bottom: 5px;
+        opacity: 0.6;
+        font-weight: 800;
+        display: flex;
+        justify-content: space-between;
       }
 
       .p1-border {
@@ -120,12 +138,12 @@
         border-top: 3px solid var(--low);
       }
 
-      /* Card & UI */
+      /* Cards */
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
         padding: 12px;
-        margin-bottom: 8px;
+        margin-bottom: 10px;
         border-radius: 6px;
         cursor: grab;
         font-size: 0.85rem;
@@ -134,25 +152,17 @@
       .card.editing {
         cursor: default;
         border-color: var(--accent);
-        ring: 2px var(--accent);
       }
       .card-text {
         white-space: pre-wrap;
         line-height: 1.4;
-        margin-bottom: 8px;
+      }
+      .card.done-task {
+        border-style: dashed;
+        opacity: 0.7;
       }
 
-      .edit-area {
-        width: 100%;
-        border: 1px solid var(--border);
-        border-radius: 4px;
-        background: var(--panel);
-        color: var(--text);
-        padding: 5px;
-        font-size: 0.8rem;
-        margin-bottom: 8px;
-      }
-
+      /* Checklist & Progress */
       .checklist-item {
         display: flex;
         align-items: center;
@@ -166,7 +176,6 @@
         border-radius: 2px;
         margin: 8px 0;
         overflow: hidden;
-        display: none;
       }
       .progress-bar {
         height: 100%;
@@ -175,14 +184,27 @@
         transition: width 0.3s;
       }
 
+      /* Icons & UI */
+      .icon-btn {
+        cursor: pointer;
+        border: none;
+        background: none;
+        font-size: 1.1rem;
+        opacity: 0.6;
+        transition: opacity 0.2s;
+        padding: 2px;
+      }
+      .icon-btn:hover {
+        opacity: 1;
+      }
       .btn {
         cursor: pointer;
         border-radius: 4px;
         border: 1px solid var(--border);
-        padding: 4px 8px;
+        padding: 6px 12px;
         background: var(--bg);
         color: var(--text);
-        font-size: 0.75rem;
+        font-size: 0.8rem;
       }
       .btn-primary {
         background: var(--accent);
@@ -197,22 +219,33 @@
         background: var(--panel);
         color: var(--text);
         width: 180px;
-        outline: none;
+      }
+
+      .edit-area {
+        width: 100%;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--accent);
+        border-radius: 4px;
+        padding: 5px;
+        font-family: inherit;
+        font-size: 0.8rem;
+        margin-bottom: 5px;
       }
     </style>
   </head>
   <body>
     <header>
       <div style="font-weight: 800; font-size: 1.2rem">
-        CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v3.9</span>
+        KANBAN_CORE
+        <span style="font-weight: 300; font-size: 0.8rem">v4.0</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
           type="text"
           id="search"
           class="search-input"
-          placeholder="Filtrer..."
+          placeholder="Rechercher..."
           oninput="render()"
         />
         <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
@@ -235,12 +268,12 @@
       <div class="input-box">
         <textarea
           id="taskText"
-          rows="3"
-          placeholder="Saisir une note... (Utilisez - [ ] pour une checklist)"
+          rows="2"
+          placeholder="Nouvelle note... (Utilisez - [ ] pour checklist)"
         ></textarea>
         <div style="display: flex; flex-direction: column; gap: 8px">
           <select id="taskPrio" class="btn">
-            <option value="1">P1 - HAUTE</option>
+            <option value="1">P1 - CRITIQUE</option>
             <option value="2" selected>P2 - MOYENNE</option>
             <option value="3">P3 - BASSE</option>
           </select>
@@ -301,11 +334,10 @@
       }
 
       function updateTaskText(taskId) {
-        const newText = document.getElementById(
-          `edit-textarea-${taskId}`,
-        ).value;
-        const task = data.tasks.find((t) => t.id === taskId);
-        task.text = newText;
+        const newText = document.getElementById(`edit-area-${taskId}`).value;
+        data.tasks = data.tasks.map((t) =>
+          t.id === taskId ? { ...t, text: newText } : t,
+        );
         editingTaskId = null;
         save();
       }
@@ -321,6 +353,7 @@
       function onDragLeave(e) {
         e.currentTarget.classList.remove("drag-over");
       }
+
       function onDrop(e, status, prio, completed) {
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
@@ -339,25 +372,27 @@
         data.columns.forEach((col) => {
           const colEl = document.createElement("div");
           colEl.className = "main-col";
-          colEl.innerHTML = `<div class="main-col-header">${col}</div><div class="sub-grid">${[
-            1, 2, 3,
-          ]
-            .map(
-              (p) => `
+          colEl.innerHTML = `<div class="main-col-header"><span>${col}</span></div>
+                <div class="sub-grid">${[1, 2, 3]
+                  .map(
+                    (p) => `
                 <div class="prio-pair">
+                    <div class="sub-title"><span>P${p} ACTIF</span></div>
                     <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, false)"><div id="cont-${col}-${p}-a"></div></div>
+                    <div class="sub-title"><span>P${p} DONE</span></div>
                     <div class="sub-col is-done" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, true)"><div id="cont-${col}-${p}-d"></div></div>
                 </div>`,
-            )
-            .join("")}</div>`;
+                  )
+                  .join("")}</div>`;
           board.appendChild(colEl);
         });
 
         data.tasks
           .filter((t) => t.text.toLowerCase().includes(query))
           .forEach((t) => {
+            const suffix = t.completed ? "d" : "a";
             const cont = document.getElementById(
-              `cont-${t.status}-${t.prio}-${t.completed ? "d" : "a"}`,
+              `cont-${t.status}-${t.prio}-${suffix}`,
             );
             if (!cont) return;
 
@@ -367,7 +402,7 @@
               checked = 0;
 
             const contentHtml = isEditing
-              ? `<textarea id="edit-textarea-${t.id}" class="edit-area" rows="5">${t.text}</textarea>`
+              ? `<textarea id="edit-area-${t.id}" class="edit-area" rows="4">${t.text}</textarea>`
               : lines
                   .map((line, idx) => {
                     if (
@@ -390,18 +425,18 @@
 
             card.innerHTML = `
                 <div class="card-text">${contentHtml}</div>
-                ${!isEditing ? `<div class="progress-container" style="${total > 0 ? "display:block" : ""}"><div class="progress-bar" style="width:${progress}%"></div></div>` : ""}
-                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.65rem; opacity:0.6; margin-top:5px;">
+                ${total > 0 && !isEditing ? `<div class="progress-container"><div class="progress-bar" style="width:${progress}%"></div></div>` : ""}
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid var(--border); padding-top:5px;">
                     <div>
                         ${
                           isEditing
-                            ? `<button class="btn-primary" onclick="updateTaskText(${t.id})">SAUVER</button> 
-                             <button class="btn" onclick="editingTaskId=null;render()">ANNULER</button>`
-                            : `<button class="btn" onclick="editingTaskId=${t.id};render()">ÉDITER</button>
-                             <button class="btn" style="color:var(--high); border-color:var(--high)" onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">SUPPR.</button>`
+                            ? `<button class="icon-btn" onclick="updateTaskText(${t.id})" title="Sauvegarder">💾</button>
+                             <button class="icon-btn" onclick="editingTaskId=null;render()" title="Annuler">❌</button>`
+                            : `<button class="icon-btn" onclick="editingTaskId=${t.id};render()" title="Modifier">📝</button>
+                             <button class="icon-btn" onclick="if(confirm('Supprimer ?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" title="Supprimer">🗑️</button>`
                         }
                     </div>
-                    <span>${total > 0 && !isEditing ? checked + "/" + total : "#" + t.id.toString().slice(-4)}</span>
+                    <span style="font-size:0.6rem; opacity:0.5;">${total > 0 ? checked + "/" + total : "#" + t.id.toString().slice(-4)}</span>
                 </div>`;
             cont.appendChild(card);
           });
@@ -417,7 +452,7 @@
             type: "application/json",
           }),
         );
-        a.download = `kanban_v39.json`;
+        a.download = `kanban_v4.json`;
         a.click();
       }
       function importBackup(e) {
