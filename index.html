@@ -1,181 +1,380 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="fr">
-<head>
-    <meta charset="UTF-8">
+  <head>
+    <meta charset="UTF-8" />
     <title>Kanban OS v3.2</title>
     <style>
-        :root {
-            --bg: #ffffff; --panel: #f6f8fa; --border: #d0d7de; --text: #24292f;
-            --accent: #0969da; --high: #cf222e; --mid: #d29922; --low: #1a7f37;
-        }
-        [data-theme="dark"] {
-            --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9; --accent: #58a6ff;
-        }
+      :root {
+        --bg: #ffffff;
+        --panel: #f6f8fa;
+        --border: #d0d7de;
+        --text: #24292f;
+        --accent: #0969da;
+        --high: #cf222e;
+        --mid: #d29922;
+        --low: #1a7f37;
+      }
+      [data-theme="dark"] {
+        --bg: #0d1117;
+        --panel: #161b22;
+        --border: #30363d;
+        --text: #c9d1d9;
+        --accent: #58a6ff;
+      }
 
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: background 0.3s; }
-        header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }
-        
-        .top-bar { display: flex; gap: 15px; margin-bottom: 20px; }
-        .input-box { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; flex: 2; display: flex; gap: 10px; }
-        textarea { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 10px; font-family: inherit; resize: vertical; }
-        
-        .col-management { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
+      body {
+        font-family: system-ui, sans-serif;
+        background: var(--bg);
+        color: var(--text);
+        margin: 0;
+        padding: 20px;
+        transition: background 0.3s;
+      }
+      header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+      }
 
-        .board { display: flex; gap: 20px; align-items: flex-start; overflow-x: auto; padding-bottom: 30px; min-height: 60vh; }
-        .main-col { flex: 1; min-width: 350px; background: var(--panel); border-radius: 8px; border: 1px solid var(--border); padding: 10px; }
-        .main-col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: bold; font-size: 0.9rem; }
-        
-        .sub-grid { display: flex; gap: 5px; }
-        .sub-col { flex: 1; min-height: 250px; background: rgba(0,0,0,0.03); border-radius: 4px; padding: 5px; border: 1px dashed transparent; }
-        .sub-col.drag-over { border-color: var(--accent); background: rgba(88, 166, 255, 0.1); }
-        .sub-title { font-size: 0.6rem; text-align: center; margin-bottom: 8px; opacity: 0.5; font-weight: 800; }
+      .top-bar {
+        display: flex;
+        gap: 15px;
+        margin-bottom: 20px;
+      }
+      .input-box {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        padding: 15px;
+        border-radius: 8px;
+        flex: 2;
+        display: flex;
+        gap: 10px;
+      }
+      textarea {
+        flex: 1;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        padding: 10px;
+        font-family: inherit;
+        resize: vertical;
+      }
 
-        .card { 
-            background: var(--bg); border: 1px solid var(--border); padding: 12px; margin-bottom: 10px; 
-            border-radius: 6px; cursor: grab; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        .card:active { cursor: grabbing; }
-        .card-text { white-space: pre-wrap; margin-bottom: 8px; line-height: 1.4; }
-        .edit-textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; padding: 5px; font-family: inherit; font-size: 0.85rem; box-sizing: border-box; }
+      .col-management {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        padding: 15px;
+        border-radius: 8px;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+      }
 
-        .btn { cursor: pointer; border-radius: 4px; border: 1px solid var(--border); padding: 6px 12px; background: var(--bg); color: var(--text); font-size: 0.8rem; }
-        .btn-primary { background: var(--accent); color: white; border: none; font-weight: bold; }
-        .btn-danger { color: var(--high); border: none; background: none; font-weight: bold; cursor: pointer; }
-        
-        .search-input { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--panel); color: var(--text); width: 200px; }
+      .board {
+        display: flex;
+        gap: 20px;
+        align-items: flex-start;
+        overflow-x: auto;
+        padding-bottom: 30px;
+        min-height: 60vh;
+      }
+      .main-col {
+        flex: 1;
+        min-width: 350px;
+        background: var(--panel);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        padding: 10px;
+      }
+      .main-col-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 12px;
+        font-weight: bold;
+        font-size: 0.9rem;
+      }
+
+      .sub-grid {
+        display: flex;
+        gap: 5px;
+      }
+      .sub-col {
+        flex: 1;
+        min-height: 250px;
+        background: rgba(0, 0, 0, 0.03);
+        border-radius: 4px;
+        padding: 5px;
+        border: 1px dashed transparent;
+      }
+      .sub-col.drag-over {
+        border-color: var(--accent);
+        background: rgba(88, 166, 255, 0.1);
+      }
+      .sub-title {
+        font-size: 0.6rem;
+        text-align: center;
+        margin-bottom: 8px;
+        opacity: 0.5;
+        font-weight: 800;
+      }
+
+      .card {
+        background: var(--bg);
+        border: 1px solid var(--border);
+        padding: 12px;
+        margin-bottom: 10px;
+        border-radius: 6px;
+        cursor: grab;
+        font-size: 0.85rem;
+        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+      }
+      .card:active {
+        cursor: grabbing;
+      }
+      .card-text {
+        white-space: pre-wrap;
+        margin-bottom: 8px;
+        line-height: 1.4;
+      }
+      .edit-textarea {
+        width: 100%;
+        background: var(--bg);
+        color: var(--text);
+        border: 1px solid var(--accent);
+        border-radius: 4px;
+        padding: 5px;
+        font-family: inherit;
+        font-size: 0.85rem;
+        box-sizing: border-box;
+      }
+
+      .btn {
+        cursor: pointer;
+        border-radius: 4px;
+        border: 1px solid var(--border);
+        padding: 6px 12px;
+        background: var(--bg);
+        color: var(--text);
+        font-size: 0.8rem;
+      }
+      .btn-primary {
+        background: var(--accent);
+        color: white;
+        border: none;
+        font-weight: bold;
+      }
+      .btn-danger {
+        color: var(--high);
+        border: none;
+        background: none;
+        font-weight: bold;
+        cursor: pointer;
+      }
+
+      .search-input {
+        padding: 6px 12px;
+        border-radius: 20px;
+        border: 1px solid var(--border);
+        background: var(--panel);
+        color: var(--text);
+        width: 200px;
+      }
     </style>
-</head>
-<body>
-
-<header>
-    <h1>Kanban Workspace</h1>
-    <div style="display:flex; gap:15px; align-items:center;">
-        <input type="text" id="search" class="search-input" placeholder="Rechercher..." oninput="render()">
-        <span onclick="toggleTheme()" style="cursor:pointer; font-size:1.4rem;">🌓</span>
+  </head>
+  <body>
+    <header>
+      <h1>Kanban Workspace</h1>
+      <div style="display: flex; gap: 15px; align-items: center">
+        <input
+          type="text"
+          id="search"
+          class="search-input"
+          placeholder="Rechercher..."
+          oninput="render()"
+        />
+        <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
+          >🌓</span
+        >
         <button class="btn" onclick="exportBackup()">💾 Export JSON</button>
-        <button class="btn" onclick="document.getElementById('imp').click()">📂 Import</button>
-        <input type="file" id="imp" style="display:none" onchange="importBackup(event)">
-    </div>
-</header>
+        <button class="btn" onclick="document.getElementById('imp').click()">
+          📂 Import
+        </button>
+        <input
+          type="file"
+          id="imp"
+          style="display: none"
+          onchange="importBackup(event)"
+        />
+      </div>
+    </header>
 
-<div class="top-bar">
-    <div class="input-box">
-        <textarea id="taskText" rows="2" placeholder="Nouvelle note... (Ctrl+Enter)"></textarea>
-        <div style="display:flex; flex-direction:column; gap:5px;">
-            <select id="taskPrio" class="btn">
-                <option value="3">P3 - Haute</option>
-                <option value="2" selected>P2 - Moyenne</option>
-                <option value="1">P1 - Basse</option>
-            </select>
-            <button class="btn-primary" style="padding:10px;" onclick="addTask()">AJOUTER</button>
+    <div class="top-bar">
+      <div class="input-box">
+        <textarea
+          id="taskText"
+          rows="2"
+          placeholder="Nouvelle note... (Ctrl+Enter)"
+        ></textarea>
+        <div style="display: flex; flex-direction: column; gap: 5px">
+          <select id="taskPrio" class="btn">
+            <option value="3">P3 - Haute</option>
+            <option value="2" selected>P2 - Moyenne</option>
+            <option value="1">P1 - Basse</option>
+          </select>
+          <button class="btn-primary" style="padding: 10px" onclick="addTask()">
+            AJOUTER
+          </button>
         </div>
-    </div>
-    <div class="col-management">
-        <div style="display:flex; gap:5px;">
-            <input type="text" id="newColTitle" placeholder="Nouvelle colonne..." style="flex:1; padding:5px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
-            <button class="btn" onclick="addColumn()">+</button>
+      </div>
+      <div class="col-management">
+        <div style="display: flex; gap: 5px">
+          <input
+            type="text"
+            id="newColTitle"
+            placeholder="Nouvelle colonne..."
+            style="
+              flex: 1;
+              padding: 5px;
+              border-radius: 4px;
+              border: 1px solid var(--border);
+              background: var(--bg);
+              color: var(--text);
+            "
+          />
+          <button class="btn" onclick="addColumn()">+</button>
         </div>
+      </div>
     </div>
-</div>
 
-<div class="board" id="board"></div>
+    <div class="board" id="board"></div>
 
-<script>
-    const defaultConfig = {
+    <script>
+      const defaultConfig = {
         tasks: [],
         columns: ["À FAIRE", "EN COURS", "TERMINÉ"],
-        settings: { theme: 'dark' }
-    };
+        settings: { theme: "light" },
+      };
 
-    let data = JSON.parse(localStorage.getItem('kanban_v32_storage')) || defaultConfig;
-    let currentlyEditing = null;
+      let data =
+        JSON.parse(localStorage.getItem("kanban_v32_storage")) || defaultConfig;
+      let currentlyEditing = null;
 
-    function save() {
-        localStorage.setItem('kanban_v32_storage', JSON.stringify(data));
+      function save() {
+        localStorage.setItem("kanban_v32_storage", JSON.stringify(data));
         applyTheme();
         render();
-    }
+      }
 
-    function applyTheme() { document.body.dataset.theme = data.settings.theme; }
-    function toggleTheme() { data.settings.theme = data.settings.theme === 'dark' ? 'light' : 'dark'; save(); }
-
-    function addColumn() {
-        const title = document.getElementById('newColTitle').value.trim().toUpperCase();
-        if(title && !data.columns.includes(title)) {
-            data.columns.push(title);
-            document.getElementById('newColTitle').value = '';
-            save();
-        }
-    }
-
-    function removeColumn(title) {
-        if(confirm(`Supprimer ${title} ?`)) {
-            data.columns = data.columns.filter(c => c !== title);
-            data.tasks = data.tasks.filter(t => t.status !== title);
-            save();
-        }
-    }
-
-    function addTask() {
-        const text = document.getElementById('taskText').value.trim();
-        const prio = parseInt(document.getElementById('taskPrio').value);
-        if(!text) return;
-        data.tasks.push({ id: Date.now(), text, prio, status: data.columns[0] });
-        document.getElementById('taskText').value = '';
+      function applyTheme() {
+        document.body.dataset.theme = data.settings.theme;
+      }
+      function toggleTheme() {
+        data.settings.theme = data.settings.theme === "dark" ? "light" : "dark";
         save();
-    }
+      }
 
-    function updateTaskText(id, newText) {
-        data.tasks = data.tasks.map(t => t.id === id ? {...t, text: newText} : t);
+      function addColumn() {
+        const title = document
+          .getElementById("newColTitle")
+          .value.trim()
+          .toUpperCase();
+        if (title && !data.columns.includes(title)) {
+          data.columns.push(title);
+          document.getElementById("newColTitle").value = "";
+          save();
+        }
+      }
+
+      function removeColumn(title) {
+        if (confirm(`Supprimer ${title} ?`)) {
+          data.columns = data.columns.filter((c) => c !== title);
+          data.tasks = data.tasks.filter((t) => t.status !== title);
+          save();
+        }
+      }
+
+      function addTask() {
+        const text = document.getElementById("taskText").value.trim();
+        const prio = parseInt(document.getElementById("taskPrio").value);
+        if (!text) return;
+        data.tasks.push({
+          id: Date.now(),
+          text,
+          prio,
+          status: data.columns[0],
+        });
+        document.getElementById("taskText").value = "";
+        save();
+      }
+
+      function updateTaskText(id, newText) {
+        data.tasks = data.tasks.map((t) =>
+          t.id === id ? { ...t, text: newText } : t,
+        );
         currentlyEditing = null;
         save();
-    }
+      }
 
-    // --- Drag & Drop ---
-    function onDragStart(e, id) { 
+      // --- Drag & Drop ---
+      function onDragStart(e, id) {
         if (currentlyEditing) return e.preventDefault();
-        e.dataTransfer.setData('text/plain', id); 
-    }
-    function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
-    function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
-    function onDrop(e, status, prio) {
+        e.dataTransfer.setData("text/plain", id);
+      }
+      function onDragOver(e) {
         e.preventDefault();
-        e.currentTarget.classList.remove('drag-over');
-        const id = e.dataTransfer.getData('text/plain');
-        data.tasks = data.tasks.map(t => t.id == id ? {...t, status, prio: parseInt(prio)} : t);
+        e.currentTarget.classList.add("drag-over");
+      }
+      function onDragLeave(e) {
+        e.currentTarget.classList.remove("drag-over");
+      }
+      function onDrop(e, status, prio) {
+        e.preventDefault();
+        e.currentTarget.classList.remove("drag-over");
+        const id = e.dataTransfer.getData("text/plain");
+        data.tasks = data.tasks.map((t) =>
+          t.id == id ? { ...t, status, prio: parseInt(prio) } : t,
+        );
         save();
-    }
+      }
 
-    function render() {
-        const search = document.getElementById('search').value.toLowerCase();
-        const board = document.getElementById('board');
-        board.innerHTML = '';
+      function render() {
+        const search = document.getElementById("search").value.toLowerCase();
+        const board = document.getElementById("board");
+        board.innerHTML = "";
 
-        data.columns.forEach(col => {
-            const colEl = document.createElement('div');
-            colEl.className = 'main-col';
-            colEl.innerHTML = `<div class="main-col-header"><span>${col}</span><button class="btn-danger" onclick="removeColumn('${col}')">×</button></div>
-                <div class="sub-grid">${[3,2,1].map(p => `<div class="sub-col" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p})"><div class="sub-title">P${p}</div><div id="cont-${col}-${p}"></div></div>`).join('')}</div>`;
-            board.appendChild(colEl);
+        data.columns.forEach((col) => {
+          const colEl = document.createElement("div");
+          colEl.className = "main-col";
+          colEl.innerHTML = `<div class="main-col-header"><span>${col}</span><button class="btn-danger" onclick="removeColumn('${col}')">×</button></div>
+                <div class="sub-grid">${[3, 2, 1].map((p) => `<div class="sub-col" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p})"><div class="sub-title">P${p}</div><div id="cont-${col}-${p}"></div></div>`).join("")}</div>`;
+          board.appendChild(colEl);
         });
 
-        data.tasks.filter(t => t.text.toLowerCase().includes(search)).forEach(t => {
+        data.tasks
+          .filter((t) => t.text.toLowerCase().includes(search))
+          .forEach((t) => {
             const cont = document.getElementById(`cont-${t.status}-${t.prio}`);
-            if(!cont) return;
-            const card = document.createElement('div');
-            card.className = 'card';
+            if (!cont) return;
+            const card = document.createElement("div");
+            card.className = "card";
             card.draggable = currentlyEditing !== t.id;
             card.ondragstart = (e) => onDragStart(e, t.id);
 
             if (currentlyEditing === t.id) {
-                card.innerHTML = `
+              card.innerHTML = `
                     <textarea id="edit-${t.id}" class="edit-textarea" rows="4">${t.text}</textarea>
                     <div style="margin-top:5px; display:flex; gap:5px;">
                         <button class="btn-primary" style="font-size:0.6rem;" onclick="updateTaskText(${t.id}, document.getElementById('edit-${t.id}').value)">OK</button>
                         <button class="btn" style="font-size:0.6rem;" onclick="currentlyEditing=null;render()">Annuler</button>
                     </div>`;
             } else {
-                card.innerHTML = `
+              card.innerHTML = `
                     <div class="card-text" title="Double-clic pour éditer" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
                     <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4; margin-top:8px;">
                         <span onclick="currentlyEditing=${t.id};render()" style="cursor:pointer;">ÉDITER</span>
@@ -183,27 +382,34 @@
                     </div>`;
             }
             cont.appendChild(card);
+          });
+      }
+
+      document.getElementById("taskText").addEventListener("keydown", (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") addTask();
+      });
+
+      function exportBackup() {
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+          type: "application/json",
         });
-    }
-
-    document.getElementById('taskText').addEventListener('keydown', e => { if((e.ctrlKey || e.metaKey) && e.key === 'Enter') addTask(); });
-
-    function exportBackup() {
-        const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
-        const a = document.createElement('a');
+        const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
         a.download = `kanban_export.json`;
         a.click();
-    }
+      }
 
-    function importBackup(e) {
+      function importBackup(e) {
         const reader = new FileReader();
-        reader.onload = (ev) => { data = JSON.parse(ev.target.result); save(); };
+        reader.onload = (ev) => {
+          data = JSON.parse(ev.target.result);
+          save();
+        };
         reader.readAsText(e.target.files[0]);
-    }
+      }
 
-    applyTheme();
-    render();
-</script>
-</body>
+      applyTheme();
+      render();
+    </script>
+  </body>
 </html>
