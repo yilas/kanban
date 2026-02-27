@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v3.8</title>
+    <title>Kanban System v3.9</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -81,12 +81,11 @@
         padding: 12px;
       }
       .main-col-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
         margin-bottom: 12px;
         font-weight: 600;
         font-size: 0.9rem;
+        text-align: center;
+        color: var(--accent);
       }
 
       .sub-grid {
@@ -121,7 +120,7 @@
         border-top: 3px solid var(--low);
       }
 
-      /* Card & Checklist */
+      /* Card & UI */
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
@@ -132,9 +131,25 @@
         font-size: 0.85rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       }
+      .card.editing {
+        cursor: default;
+        border-color: var(--accent);
+        ring: 2px var(--accent);
+      }
       .card-text {
         white-space: pre-wrap;
         line-height: 1.4;
+        margin-bottom: 8px;
+      }
+
+      .edit-area {
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 4px;
+        background: var(--panel);
+        color: var(--text);
+        padding: 5px;
+        font-size: 0.8rem;
         margin-bottom: 8px;
       }
 
@@ -145,10 +160,6 @@
         margin-top: 4px;
         font-size: 0.8rem;
       }
-      .checklist-item input {
-        cursor: pointer;
-      }
-
       .progress-container {
         height: 4px;
         background: rgba(0, 0, 0, 0.1);
@@ -168,10 +179,10 @@
         cursor: pointer;
         border-radius: 4px;
         border: 1px solid var(--border);
-        padding: 6px 12px;
+        padding: 4px 8px;
         background: var(--bg);
         color: var(--text);
-        font-size: 0.8rem;
+        font-size: 0.75rem;
       }
       .btn-primary {
         background: var(--accent);
@@ -194,7 +205,7 @@
     <header>
       <div style="font-weight: 800; font-size: 1.2rem">
         CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v3.8</span>
+        <span style="font-weight: 300; font-size: 0.8rem">v3.9</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
@@ -225,7 +236,7 @@
         <textarea
           id="taskText"
           rows="3"
-          placeholder="Note... (Astuce: utilisez - [ ] pour une checklist)"
+          placeholder="Saisir une note... (Utilisez - [ ] pour une checklist)"
         ></textarea>
         <div style="display: flex; flex-direction: column; gap: 8px">
           <select id="taskPrio" class="btn">
@@ -249,6 +260,7 @@
         columns: ["BACKLOG", "EN COURS", "TERMINÉ"],
         settings: { theme: "dark" },
       };
+      let editingTaskId = null;
 
       function save() {
         localStorage.setItem(DB_KEY, JSON.stringify(data));
@@ -288,7 +300,18 @@
         save();
       }
 
+      function updateTaskText(taskId) {
+        const newText = document.getElementById(
+          `edit-textarea-${taskId}`,
+        ).value;
+        const task = data.tasks.find((t) => t.id === taskId);
+        task.text = newText;
+        editingTaskId = null;
+        save();
+      }
+
       function onDragStart(e, id) {
+        if (editingTaskId) return e.preventDefault();
         e.dataTransfer.setData("text/plain", id);
       }
       function onDragOver(e) {
@@ -338,38 +361,47 @@
             );
             if (!cont) return;
 
+            const isEditing = editingTaskId === t.id;
             const lines = t.text.split("\n");
-            let checklistHtml = "";
             let total = 0,
               checked = 0;
 
-            const contentHtml = lines
-              .map((line, idx) => {
-                if (
-                  line.trim().startsWith("- [ ]") ||
-                  line.trim().startsWith("- [x]")
-                ) {
-                  total++;
-                  const isChecked = line.includes("- [x]");
-                  if (isChecked) checked++;
-                  return `<div class="checklist-item"><input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleCheck(${t.id}, ${idx})"><span>${line.replace(/- \[[ x]\]/, "")}</span></div>`;
-                }
-                return `<div>${line}</div>`;
-              })
-              .join("");
+            const contentHtml = isEditing
+              ? `<textarea id="edit-textarea-${t.id}" class="edit-area" rows="5">${t.text}</textarea>`
+              : lines
+                  .map((line, idx) => {
+                    if (
+                      line.trim().startsWith("- [ ]") ||
+                      line.trim().startsWith("- [x]")
+                    ) {
+                      total++;
+                      if (line.includes("- [x]")) checked++;
+                      return `<div class="checklist-item"><input type="checkbox" ${line.includes("- [x]") ? "checked" : ""} onchange="toggleCheck(${t.id}, ${idx})"><span>${line.replace(/- \[[ x]\]/, "")}</span></div>`;
+                    }
+                    return `<div>${line}</div>`;
+                  })
+                  .join("");
 
             const progress = total > 0 ? (checked / total) * 100 : 0;
-
             const card = document.createElement("div");
-            card.className = `card ${t.completed ? "done-task" : ""}`;
-            card.draggable = true;
+            card.className = `card ${t.completed ? "done-task" : ""} ${isEditing ? "editing" : ""}`;
+            card.draggable = !isEditing;
             card.ondragstart = (e) => onDragStart(e, t.id);
+
             card.innerHTML = `
                 <div class="card-text">${contentHtml}</div>
-                <div class="progress-container" style="${total > 0 ? "display:block" : ""}"><div class="progress-bar" style="width:${progress}%"></div></div>
-                <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4;">
-                    <span onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" style="cursor:pointer; color:var(--high)">SUPPR.</span>
-                    <span>${total > 0 ? checked + "/" + total : "#" + t.id.toString().slice(-4)}</span>
+                ${!isEditing ? `<div class="progress-container" style="${total > 0 ? "display:block" : ""}"><div class="progress-bar" style="width:${progress}%"></div></div>` : ""}
+                <div style="display:flex; justify-content:space-between; align-items:center; font-size:0.65rem; opacity:0.6; margin-top:5px;">
+                    <div>
+                        ${
+                          isEditing
+                            ? `<button class="btn-primary" onclick="updateTaskText(${t.id})">SAUVER</button> 
+                             <button class="btn" onclick="editingTaskId=null;render()">ANNULER</button>`
+                            : `<button class="btn" onclick="editingTaskId=${t.id};render()">ÉDITER</button>
+                             <button class="btn" style="color:var(--high); border-color:var(--high)" onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">SUPPR.</button>`
+                        }
+                    </div>
+                    <span>${total > 0 && !isEditing ? checked + "/" + total : "#" + t.id.toString().slice(-4)}</span>
                 </div>`;
             cont.appendChild(card);
           });
@@ -385,7 +417,7 @@
             type: "application/json",
           }),
         );
-        a.download = `kanban_v38.json`;
+        a.download = `kanban_v39.json`;
         a.click();
       }
       function importBackup(e) {
