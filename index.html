@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Kanban OS v3.0</title>
+    <title>Kanban OS v3.2</title>
     <style>
         :root {
             --bg: #ffffff; --panel: #f6f8fa; --border: #d0d7de; --text: #24292f;
@@ -12,92 +12,106 @@
             --bg: #0d1117; --panel: #161b22; --border: #30363d; --text: #c9d1d9; --accent: #58a6ff;
         }
 
-        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: 0.2s; }
+        body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 20px; transition: background 0.3s; }
         header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); padding-bottom: 15px; margin-bottom: 20px; }
         
-        .top-bar { display: flex; gap: 10px; margin-bottom: 20px; align-items: flex-start; }
+        .top-bar { display: flex; gap: 15px; margin-bottom: 20px; }
         .input-box { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; flex: 2; display: flex; gap: 10px; }
-        textarea { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 8px; font-family: inherit; }
+        textarea { flex: 1; background: var(--bg); color: var(--text); border: 1px solid var(--border); border-radius: 4px; padding: 10px; font-family: inherit; resize: vertical; }
         
-        .col-management { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; flex: 1; }
+        .col-management { background: var(--panel); border: 1px solid var(--border); padding: 15px; border-radius: 8px; flex: 1; display: flex; flex-direction: column; gap: 8px; }
 
-        .board { display: flex; gap: 20px; align-items: flex-start; overflow-x: auto; padding-bottom: 30px; }
-        .main-col { flex: 1; min-width: 350px; background: var(--panel); border-radius: 8px; border: 1px solid var(--border); padding: 10px; position: relative; }
-        .main-col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; }
-        .btn-rm-col { color: var(--high); cursor: pointer; border: none; background: none; font-weight: bold; }
-
+        .board { display: flex; gap: 20px; align-items: flex-start; overflow-x: auto; padding-bottom: 30px; min-height: 60vh; }
+        .main-col { flex: 1; min-width: 350px; background: var(--panel); border-radius: 8px; border: 1px solid var(--border); padding: 10px; }
+        .main-col-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; font-weight: bold; font-size: 0.9rem; }
+        
         .sub-grid { display: flex; gap: 5px; }
-        .sub-col { flex: 1; min-height: 200px; background: rgba(0,0,0,0.03); border-radius: 4px; padding: 5px; transition: 0.2s; }
-        .sub-col.drag-over { background: var(--accent); opacity: 0.3; }
-        .sub-title { font-size: 0.6rem; font-weight: bold; text-align: center; margin-bottom: 8px; opacity: 0.6; }
+        .sub-col { flex: 1; min-height: 250px; background: rgba(0,0,0,0.03); border-radius: 4px; padding: 5px; border: 1px dashed transparent; }
+        .sub-col.drag-over { border-color: var(--accent); background: rgba(88, 166, 255, 0.1); }
+        .sub-title { font-size: 0.6rem; text-align: center; margin-bottom: 8px; opacity: 0.5; font-weight: 800; }
 
-        /* Style des cartes */
         .card { 
-            background: var(--bg); border: 1px solid var(--border); padding: 10px; margin-bottom: 10px; 
-            border-radius: 4px; cursor: grab; font-size: 0.85rem; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+            background: var(--bg); border: 1px solid var(--border); padding: 12px; margin-bottom: 10px; 
+            border-radius: 6px; cursor: grab; font-size: 0.85rem; box-shadow: 0 1px 3px rgba(0,0,0,0.1);
         }
         .card:active { cursor: grabbing; }
-        .card-text { white-space: pre-wrap; margin-bottom: 8px; }
+        .card-text { white-space: pre-wrap; margin-bottom: 8px; line-height: 1.4; }
+        .edit-textarea { width: 100%; background: var(--bg); color: var(--text); border: 1px solid var(--accent); border-radius: 4px; padding: 5px; font-family: inherit; font-size: 0.85rem; box-sizing: border-box; }
 
-        .btn { cursor: pointer; border-radius: 4px; border: 1px solid var(--border); padding: 5px 10px; background: var(--bg); color: var(--text); }
-        .btn-primary { background: var(--accent); color: white; border: none; }
+        .btn { cursor: pointer; border-radius: 4px; border: 1px solid var(--border); padding: 6px 12px; background: var(--bg); color: var(--text); font-size: 0.8rem; }
+        .btn-primary { background: var(--accent); color: white; border: none; font-weight: bold; }
+        .btn-danger { color: var(--high); border: none; background: none; font-weight: bold; cursor: pointer; }
+        
+        .search-input { padding: 6px 12px; border-radius: 20px; border: 1px solid var(--border); background: var(--panel); color: var(--text); width: 200px; }
     </style>
 </head>
-<body data-theme="dark">
+<body>
 
 <header>
-    <h1>Kanban OS v3.0</h1>
-    <div style="display:flex; gap:10px; align-items:center;">
-        <input type="text" id="search" placeholder="Rechercher..." oninput="render()" style="padding:5px; border-radius:4px; border:1px solid var(--border); background:var(--panel); color:var(--text);">
-        <span onclick="toggleTheme()" style="cursor:pointer; font-size:1.2rem;">🌓</span>
-        <button class="btn" onclick="exportJSON()">Export</button>
-        <button class="btn" onclick="document.getElementById('imp').click()">Import</button>
-        <input type="file" id="imp" style="display:none" onchange="importJSON(event)">
+    <h1>Kanban Workspace</h1>
+    <div style="display:flex; gap:15px; align-items:center;">
+        <input type="text" id="search" class="search-input" placeholder="Rechercher..." oninput="render()">
+        <span onclick="toggleTheme()" style="cursor:pointer; font-size:1.4rem;">🌓</span>
+        <button class="btn" onclick="exportBackup()">💾 Export JSON</button>
+        <button class="btn" onclick="document.getElementById('imp').click()">📂 Import</button>
+        <input type="file" id="imp" style="display:none" onchange="importBackup(event)">
     </div>
 </header>
 
 <div class="top-bar">
     <div class="input-box">
-        <textarea id="taskText" placeholder="Nouvelle note... (Ctrl+Enter)"></textarea>
-        <select id="taskPrio">
-            <option value="3">P3 High</option>
-            <option value="2" selected>P2 Mid</option>
-            <option value="1">P1 Low</option>
-        </select>
-        <button class="btn-primary" onclick="addTask()">Ajouter</button>
+        <textarea id="taskText" rows="2" placeholder="Nouvelle note... (Ctrl+Enter)"></textarea>
+        <div style="display:flex; flex-direction:column; gap:5px;">
+            <select id="taskPrio" class="btn">
+                <option value="3">P3 - Haute</option>
+                <option value="2" selected>P2 - Moyenne</option>
+                <option value="1">P1 - Basse</option>
+            </select>
+            <button class="btn-primary" style="padding:10px;" onclick="addTask()">AJOUTER</button>
+        </div>
     </div>
     <div class="col-management">
-        <input type="text" id="newColTitle" placeholder="Nom de colonne..." style="width:70%; padding:5px;">
-        <button class="btn" onclick="addColumn()">+ Col</button>
+        <div style="display:flex; gap:5px;">
+            <input type="text" id="newColTitle" placeholder="Nouvelle colonne..." style="flex:1; padding:5px; border-radius:4px; border:1px solid var(--border); background:var(--bg); color:var(--text);">
+            <button class="btn" onclick="addColumn()">+</button>
+        </div>
     </div>
 </div>
 
 <div class="board" id="board"></div>
 
 <script>
-    let tasks = JSON.parse(localStorage.getItem('k3-tasks')) || [];
-    let cols = JSON.parse(localStorage.getItem('k3-cols')) || ["À FAIRE", "EN COURS", "TERMINÉ"];
+    const defaultConfig = {
+        tasks: [],
+        columns: ["À FAIRE", "EN COURS", "TERMINÉ"],
+        settings: { theme: 'dark' }
+    };
 
-    function toggleTheme() {
-        const b = document.body;
-        b.dataset.theme = b.dataset.theme === 'dark' ? 'light' : 'dark';
-        localStorage.setItem('k3-theme', b.dataset.theme);
+    let data = JSON.parse(localStorage.getItem('kanban_v32_storage')) || defaultConfig;
+    let currentlyEditing = null;
+
+    function save() {
+        localStorage.setItem('kanban_v32_storage', JSON.stringify(data));
+        applyTheme();
+        render();
     }
-    document.body.dataset.theme = localStorage.getItem('k3-theme') || 'dark';
+
+    function applyTheme() { document.body.dataset.theme = data.settings.theme; }
+    function toggleTheme() { data.settings.theme = data.settings.theme === 'dark' ? 'light' : 'dark'; save(); }
 
     function addColumn() {
         const title = document.getElementById('newColTitle').value.trim().toUpperCase();
-        if(title && !cols.includes(title)) {
-            cols.push(title);
+        if(title && !data.columns.includes(title)) {
+            data.columns.push(title);
             document.getElementById('newColTitle').value = '';
             save();
         }
     }
 
     function removeColumn(title) {
-        if(confirm(`Supprimer la colonne ${title} ?`)) {
-            cols = cols.filter(c => c !== title);
-            tasks = tasks.filter(t => t.status !== title);
+        if(confirm(`Supprimer ${title} ?`)) {
+            data.columns = data.columns.filter(c => c !== title);
+            data.tasks = data.tasks.filter(t => t.status !== title);
             save();
         }
     }
@@ -106,26 +120,29 @@
         const text = document.getElementById('taskText').value.trim();
         const prio = parseInt(document.getElementById('taskPrio').value);
         if(!text) return;
-        tasks.push({ id: Date.now(), text, prio, status: cols[0] });
+        data.tasks.push({ id: Date.now(), text, prio, status: data.columns[0] });
         document.getElementById('taskText').value = '';
         save();
     }
 
-    function save() {
-        localStorage.setItem('k3-tasks', JSON.stringify(tasks));
-        localStorage.setItem('k3-cols', JSON.stringify(cols));
-        render();
+    function updateTaskText(id, newText) {
+        data.tasks = data.tasks.map(t => t.id === id ? {...t, text: newText} : t);
+        currentlyEditing = null;
+        save();
     }
 
-    // --- DRAG & DROP LOGIC ---
-    function onDragStart(e, id) { e.dataTransfer.setData('text/plain', id); }
+    // --- Drag & Drop ---
+    function onDragStart(e, id) { 
+        if (currentlyEditing) return e.preventDefault();
+        e.dataTransfer.setData('text/plain', id); 
+    }
     function onDragOver(e) { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }
     function onDragLeave(e) { e.currentTarget.classList.remove('drag-over'); }
     function onDrop(e, status, prio) {
         e.preventDefault();
         e.currentTarget.classList.remove('drag-over');
         const id = e.dataTransfer.getData('text/plain');
-        tasks = tasks.map(t => t.id == id ? {...t, status, prio: parseInt(prio)} : t);
+        data.tasks = data.tasks.map(t => t.id == id ? {...t, status, prio: parseInt(prio)} : t);
         save();
     }
 
@@ -134,71 +151,58 @@
         const board = document.getElementById('board');
         board.innerHTML = '';
 
-        cols.forEach(col => {
+        data.columns.forEach(col => {
             const colEl = document.createElement('div');
             colEl.className = 'main-col';
-            colEl.innerHTML = `
-                <div class="main-col-header">
-                    <strong>${col}</strong>
-                    <button class="btn-rm-col" onclick="removeColumn('${col}')">×</button>
-                </div>
-                <div class="sub-grid">
-                    ${[3,2,1].map(p => `
-                        <div class="sub-col" 
-                             ondragover="onDragOver(event)" 
-                             ondragleave="onDragLeave(event)" 
-                             ondrop="onDrop(event, '${col}', ${p})">
-                            <div class="sub-title">P${p}</div>
-                            <div id="cont-${col}-${p}"></div>
-                        </div>
-                    `).join('')}
-                </div>
-            `;
+            colEl.innerHTML = `<div class="main-col-header"><span>${col}</span><button class="btn-danger" onclick="removeColumn('${col}')">×</button></div>
+                <div class="sub-grid">${[3,2,1].map(p => `<div class="sub-col" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p})"><div class="sub-title">P${p}</div><div id="cont-${col}-${p}"></div></div>`).join('')}</div>`;
             board.appendChild(colEl);
         });
 
-        tasks.filter(t => t.text.toLowerCase().includes(search)).forEach(t => {
+        data.tasks.filter(t => t.text.toLowerCase().includes(search)).forEach(t => {
             const cont = document.getElementById(`cont-${t.status}-${t.prio}`);
             if(!cont) return;
             const card = document.createElement('div');
             card.className = 'card';
-            card.draggable = true;
+            card.draggable = currentlyEditing !== t.id;
             card.ondragstart = (e) => onDragStart(e, t.id);
-            card.innerHTML = `
-                <div class="card-text">${t.text}</div>
-                <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.5;">
-                    <span>ID-${t.id}</span>
-                    <span style="color:red; cursor:pointer;" onclick="tasks=tasks.filter(x=>x.id!=${t.id});save()">SUPPR.</span>
-                </div>
-            `;
+
+            if (currentlyEditing === t.id) {
+                card.innerHTML = `
+                    <textarea id="edit-${t.id}" class="edit-textarea" rows="4">${t.text}</textarea>
+                    <div style="margin-top:5px; display:flex; gap:5px;">
+                        <button class="btn-primary" style="font-size:0.6rem;" onclick="updateTaskText(${t.id}, document.getElementById('edit-${t.id}').value)">OK</button>
+                        <button class="btn" style="font-size:0.6rem;" onclick="currentlyEditing=null;render()">Annuler</button>
+                    </div>`;
+            } else {
+                card.innerHTML = `
+                    <div class="card-text" title="Double-clic pour éditer" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
+                    <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4; margin-top:8px;">
+                        <span onclick="currentlyEditing=${t.id};render()" style="cursor:pointer;">ÉDITER</span>
+                        <span style="color:var(--high); cursor:pointer;" onclick="data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()">SUPPRIMER</span>
+                    </div>`;
+            }
             cont.appendChild(card);
         });
     }
 
-    document.getElementById('taskText').addEventListener('keydown', e => {
-        if((e.ctrlKey || e.metaKey) && e.key === 'Enter') addTask();
-    });
+    document.getElementById('taskText').addEventListener('keydown', e => { if((e.ctrlKey || e.metaKey) && e.key === 'Enter') addTask(); });
 
-    function exportJSON() {
-        const data = { tasks, cols, theme: document.body.dataset.theme };
+    function exportBackup() {
         const blob = new Blob([JSON.stringify(data, null, 2)], {type: 'application/json'});
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = 'kanban_v3_backup.json';
+        a.download = `kanban_export.json`;
         a.click();
     }
 
-    function importJSON(e) {
+    function importBackup(e) {
         const reader = new FileReader();
-        reader.onload = (ev) => {
-            const data = JSON.parse(ev.target.result);
-            tasks = data.tasks || [];
-            cols = data.cols || cols;
-            save();
-        };
+        reader.onload = (ev) => { data = JSON.parse(ev.target.result); save(); };
         reader.readAsText(e.target.files[0]);
     }
 
+    applyTheme();
     render();
 </script>
 </body>
