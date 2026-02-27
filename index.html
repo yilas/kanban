@@ -383,9 +383,9 @@
                     ${[1, 2, 3]
                       .map(
                         (p) => `
-                        <div class="sub-col p${p}-border" 
-                             ondragover="onDragOver(event)" 
-                             ondragleave="onDragLeave(event)" 
+                        <div class="sub-col p${p}-border"
+                             ondragover="onDragOver(event)"
+                             ondragleave="onDragLeave(event)"
                              ondrop="onDrop(event, '${col}', ${p})">
                             <div class="sub-title">P${p}</div>
                             <div id="cont-${col}-${p}"></div>
