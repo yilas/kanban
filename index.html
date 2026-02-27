@@ -2,44 +2,59 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v3.5</title>
+    <title>Kanban System v3.6 - Dracula Edition</title>
     <style>
       :root {
-        --bg: #ffffff;
-        --panel: #f6f8fa;
-        --border: #d0d7de;
-        --text: #24292f;
-        --accent: #0969da;
-        --high: #cf222e;
-        --mid: #d29922;
-        --low: #1a7f37;
-        --done: #8b949e;
+        /* Dracula Theme Palette */
+        --bg: #282a36;
+        --panel: #44475a;
+        --border: #6272a4;
+        --text: #f8f8f2;
+        --accent: #bd93f9;
+        --high: #ff5555;
+        --mid: #ffb86c;
+        --low: #50fa7b;
+        --done: #6272a4;
+        --cyan: #8be9fd;
+        --pink: #ff79c6;
       }
-      [data-theme="dark"] {
-        --bg: #0d1117;
-        --panel: #161b22;
-        --border: #30363d;
-        --text: #c9d1d9;
-        --accent: #58a6ff;
+
+      [data-theme="light"] {
+        --bg: #f8f8f2;
+        --panel: #e6e6e6;
+        --border: #bd93f9;
+        --text: #282a36;
+        --accent: #6272a4;
       }
 
       body {
-        font-family: "Segoe UI", system-ui, sans-serif;
+        font-family: "Fira Code", "Segoe UI", monospace;
         background: var(--bg);
         color: var(--text);
         margin: 0;
         padding: 20px;
         transition: background 0.3s;
       }
+
       header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        border-bottom: 1px solid var(--border);
+        border-bottom: 2px solid var(--accent);
         padding-bottom: 15px;
         margin-bottom: 20px;
       }
 
+      .version-tag {
+        font-size: 0.7rem;
+        background: var(--pink);
+        color: var(--bg);
+        padding: 2px 6px;
+        border-radius: 4px;
+        vertical-align: middle;
+      }
+
+      /* Layout */
       .top-bar {
         display: flex;
         gap: 15px;
@@ -87,23 +102,25 @@
       }
       .main-col {
         flex: 1;
-        min-width: 500px;
+        min-width: 520px;
         background: var(--panel);
         border-radius: 8px;
         border: 1px solid var(--border);
-        padding: 10px;
+        padding: 12px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
       }
       .main-col-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 12px;
+        margin-bottom: 15px;
         font-weight: bold;
-        font-size: 0.9rem;
+        color: var(--cyan);
+        text-transform: uppercase;
         letter-spacing: 1px;
       }
 
-      /* Grille : 3 priorités x 2 états (Actif / Terminé) */
+      /* Grid setup */
       .sub-grid {
         display: grid;
         grid-template-columns: repeat(3, 1fr);
@@ -116,30 +133,32 @@
       }
 
       .sub-col {
-        min-height: 180px;
-        background: rgba(0, 0, 0, 0.02);
+        min-height: 200px;
+        background: rgba(0, 0, 0, 0.2);
         border-radius: 4px;
-        padding: 5px;
-        border: 1px dashed transparent;
+        padding: 8px;
+        border: 1px solid transparent;
+        transition: 0.2s;
       }
       .sub-col.drag-over {
-        border-color: var(--accent);
-        background: rgba(88, 166, 255, 0.1);
+        border-color: var(--pink);
+        background: rgba(255, 121, 198, 0.1);
       }
       .sub-col.is-done {
-        opacity: 0.6;
-        background: rgba(0, 0, 0, 0.05);
+        opacity: 0.5;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px dashed var(--border);
       }
 
       .sub-title {
         font-size: 0.6rem;
         text-align: center;
-        margin-bottom: 4px;
-        opacity: 0.5;
-        font-weight: 900;
+        margin-bottom: 6px;
+        color: var(--text);
+        opacity: 0.7;
+        font-weight: bold;
         display: flex;
         justify-content: space-between;
-        padding: 0 5px;
       }
 
       .p1-border {
@@ -152,28 +171,30 @@
         border-top: 3px solid var(--low);
       }
 
+      /* Cards */
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
-        padding: 10px;
-        margin-bottom: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
         border-radius: 6px;
         cursor: grab;
-        font-size: 0.8rem;
-        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
+        font-size: 0.85rem;
+        transition: transform 0.1s;
       }
-      .card:active {
-        cursor: grabbing;
+      .card:hover {
+        border-color: var(--accent);
       }
       .card-text {
         white-space: pre-wrap;
-        line-height: 1.3;
+        line-height: 1.4;
       }
       .card.done-task {
-        border-style: dashed;
-        text-decoration: line-through;
+        border-style: dotted;
+        opacity: 0.7;
       }
 
+      /* Buttons & Inputs */
       .btn {
         cursor: pointer;
         border-radius: 4px;
@@ -185,42 +206,55 @@
       }
       .btn-primary {
         background: var(--accent);
-        color: white;
+        color: var(--bg);
         border: none;
         font-weight: bold;
+      }
+      .btn-primary:hover {
+        filter: brightness(1.1);
       }
       .btn-danger {
         color: var(--high);
         border: none;
         background: none;
         cursor: pointer;
-        font-size: 1rem;
+        font-size: 1.1rem;
       }
 
       .search-input {
-        padding: 6px 12px;
+        padding: 8px 15px;
         border-radius: 20px;
         border: 1px solid var(--border);
         background: var(--panel);
         color: var(--text);
-        width: 180px;
+        width: 200px;
+        outline: none;
+      }
+      .search-input:focus {
+        border-color: var(--cyan);
       }
     </style>
   </head>
   <body>
     <header>
-      <div style="font-weight: 900; letter-spacing: -1px; font-size: 1.2rem">
-        KANBAN_CORE_v3.5
+      <div>
+        <span style="font-weight: 900; font-size: 1.4rem; color: var(--accent)"
+          >DRACULA_KANBAN</span
+        >
+        <span class="version-tag">v3.6</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
           type="text"
           id="search"
           class="search-input"
-          placeholder="Filtrer..."
+          placeholder="Rechercher (CTRL+F)..."
           oninput="render()"
         />
-        <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
+        <span
+          onclick="toggleTheme()"
+          style="cursor: pointer; font-size: 1.5rem"
+          title="Switch Mode"
           >🌓</span
         >
         <button class="btn" onclick="exportBackup()">Export</button>
@@ -241,35 +275,37 @@
         <textarea
           id="taskText"
           rows="2"
-          placeholder="Nouvelle tâche... (Ctrl+Enter)"
+          placeholder="Saisir un nouveau log... (Ctrl+Enter)"
         ></textarea>
-        <div style="display: flex; flex-direction: column; gap: 5px">
+        <div style="display: flex; flex-direction: column; gap: 8px">
           <select id="taskPrio" class="btn">
-            <option value="1">P1 - CRITIQUE</option>
-            <option value="2" selected>P2 - MOYENNE</option>
-            <option value="3">P3 - BASSE</option>
+            <option value="1" style="color: var(--high)">P1 - CRITICAL</option>
+            <option value="2" selected style="color: var(--mid)">
+              P2 - NORMAL
+            </option>
+            <option value="3" style="color: var(--low)">P3 - LOW</option>
           </select>
-          <button class="btn-primary" style="padding: 10px" onclick="addTask()">
-            PUSH_TASK
+          <button class="btn-primary" style="padding: 12px" onclick="addTask()">
+            EXECUTE
           </button>
         </div>
       </div>
       <div class="col-management">
-        <div style="display: flex; gap: 5px">
+        <div style="display: flex; gap: 8px">
           <input
             type="text"
             id="newColTitle"
-            placeholder="Nom colonne..."
+            placeholder="Nom de la branche..."
             style="
               flex: 1;
-              padding: 5px;
+              padding: 8px;
               border-radius: 4px;
               border: 1px solid var(--border);
               background: var(--bg);
               color: var(--text);
             "
           />
-          <button class="btn" onclick="addColumn()">+ COL</button>
+          <button class="btn" onclick="addColumn()">+ ADD</button>
         </div>
       </div>
     </div>
@@ -277,16 +313,15 @@
     <div class="board" id="board"></div>
 
     <script>
-      const DB_KEY = "kanban_universal_db";
+      const DB_KEY = "kanban_universal_db"; // Nom unique pour la db locale
 
       const defaultConfig = {
         tasks: [],
-        columns: ["BACKLOG", "PRODUCTION", "ARCHIVES"],
+        columns: ["BACKLOG", "DEVELOPMENT", "DEPLOYED"],
         settings: { theme: "dark" },
       };
 
       let data = JSON.parse(localStorage.getItem(DB_KEY)) || defaultConfig;
-      let currentlyEditing = null;
 
       function save() {
         localStorage.setItem(DB_KEY, JSON.stringify(data));
@@ -315,7 +350,9 @@
       }
 
       function removeColumn(title) {
-        if (confirm(`Supprimer ${title} ?`)) {
+        if (
+          confirm(`WARNING: Remove column [${title}] and all associated logs?`)
+        ) {
           data.columns = data.columns.filter((c) => c !== title);
           data.tasks = data.tasks.filter((t) => t.status !== title);
           save();
@@ -337,6 +374,7 @@
         save();
       }
 
+      // Drag and Drop implementation
       function onDragStart(e, id) {
         e.dataTransfer.setData("text/plain", id);
       }
@@ -347,7 +385,6 @@
       function onDragLeave(e) {
         e.currentTarget.classList.remove("drag-over");
       }
-
       function onDrop(e, status, prio, completed) {
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
@@ -376,11 +413,11 @@
                       .map(
                         (p) => `
                         <div class="prio-pair">
-                            <div class="sub-title"><span>P${p}</span><span>ACTIF</span></div>
+                            <div class="sub-title"><span style="color:var(--accent)">P${p}</span><span>ACTIVE</span></div>
                             <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, false)">
                                 <div id="cont-${col}-${p}-active"></div>
                             </div>
-                            <div class="sub-title"><span>DONE</span></div>
+                            <div class="sub-title"><span>COMPLETED</span></div>
                             <div class="sub-col is-done" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, true)">
                                 <div id="cont-${col}-${p}-done"></div>
                             </div>
@@ -407,9 +444,9 @@
             card.ondragstart = (e) => onDragStart(e, t.id);
             card.innerHTML = `
                 <div class="card-text">${t.text}</div>
-                <div style="display:flex; justify-content:space-between; font-size:0.5rem; opacity:0.4; margin-top:5px;">
-                    <span onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" style="cursor:pointer; color:var(--high)">DEL</span>
-                    <span>#${t.id.toString().slice(-4)}</span>
+                <div style="display:flex; justify-content:space-between; font-size:0.55rem; opacity:0.6; margin-top:8px; font-family:monospace;">
+                    <span style="color:var(--pink); cursor:pointer;" onclick="if(confirm('Delete log?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">[DELETE]</span>
+                    <span>HEX_${t.id.toString(16).toUpperCase().slice(-4)}</span>
                 </div>`;
             cont.appendChild(card);
           });
@@ -425,7 +462,7 @@
         });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `kanban_v35.json`;
+        a.download = `dracula_kanban_backup.json`;
         a.click();
       }
 
