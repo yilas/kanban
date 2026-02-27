@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v3.7</title>
+    <title>Kanban System v3.8</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -23,9 +23,7 @@
       }
 
       body {
-        font-family:
-          -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial,
-          sans-serif;
+        font-family: -apple-system, system-ui, sans-serif;
         background: var(--bg);
         color: var(--text);
         margin: 0;
@@ -66,18 +64,6 @@
         resize: vertical;
       }
 
-      .col-management {
-        background: var(--panel);
-        border: 1px solid var(--border);
-        padding: 15px;
-        border-radius: 8px;
-        flex: 1;
-        display: flex;
-        flex-direction: column;
-        gap: 8px;
-        justify-content: center;
-      }
-
       .board {
         display: flex;
         gap: 20px;
@@ -113,7 +99,6 @@
         flex-direction: column;
         gap: 5px;
       }
-
       .sub-col {
         min-height: 180px;
         background: rgba(0, 0, 0, 0.02);
@@ -124,21 +109,6 @@
       .sub-col.drag-over {
         border-color: var(--accent);
         background: rgba(0, 121, 191, 0.1);
-      }
-      .sub-col.is-done {
-        opacity: 0.6;
-        background: rgba(0, 0, 0, 0.05);
-      }
-
-      .sub-title {
-        font-size: 0.65rem;
-        text-align: center;
-        margin-bottom: 5px;
-        opacity: 0.6;
-        font-weight: 800;
-        display: flex;
-        justify-content: space-between;
-        padding: 0 4px;
       }
 
       .p1-border {
@@ -151,6 +121,7 @@
         border-top: 3px solid var(--low);
       }
 
+      /* Card & Checklist */
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
@@ -161,16 +132,36 @@
         font-size: 0.85rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
       }
-      .card:active {
-        cursor: grabbing;
-      }
       .card-text {
         white-space: pre-wrap;
         line-height: 1.4;
+        margin-bottom: 8px;
       }
-      .card.done-task {
-        border-style: dashed;
-        opacity: 0.7;
+
+      .checklist-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-top: 4px;
+        font-size: 0.8rem;
+      }
+      .checklist-item input {
+        cursor: pointer;
+      }
+
+      .progress-container {
+        height: 4px;
+        background: rgba(0, 0, 0, 0.1);
+        border-radius: 2px;
+        margin: 8px 0;
+        overflow: hidden;
+        display: none;
+      }
+      .progress-bar {
+        height: 100%;
+        background: var(--low);
+        width: 0%;
+        transition: width 0.3s;
       }
 
       .btn {
@@ -188,14 +179,6 @@
         border: none;
         font-weight: 600;
       }
-      .btn-danger {
-        color: var(--high);
-        border: none;
-        background: none;
-        cursor: pointer;
-        font-size: 1.1rem;
-      }
-
       .search-input {
         padding: 8px 15px;
         border-radius: 20px;
@@ -211,14 +194,14 @@
     <header>
       <div style="font-weight: 800; font-size: 1.2rem">
         CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v3.7</span>
+        <span style="font-weight: 300; font-size: 0.8rem">v3.8</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
           type="text"
           id="search"
           class="search-input"
-          placeholder="Rechercher..."
+          placeholder="Filtrer..."
           oninput="render()"
         />
         <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
@@ -241,8 +224,8 @@
       <div class="input-box">
         <textarea
           id="taskText"
-          rows="2"
-          placeholder="Nouvelle note... (Ctrl+Enter)"
+          rows="3"
+          placeholder="Note... (Astuce: utilisez - [ ] pour une checklist)"
         ></textarea>
         <div style="display: flex; flex-direction: column; gap: 8px">
           <select id="taskPrio" class="btn">
@@ -255,71 +238,27 @@
           </button>
         </div>
       </div>
-      <div class="col-management">
-        <div style="display: flex; gap: 5px">
-          <input
-            type="text"
-            id="newColTitle"
-            placeholder="Nouvelle colonne..."
-            style="
-              flex: 1;
-              padding: 6px;
-              border-radius: 4px;
-              border: 1px solid var(--border);
-              background: var(--bg);
-              color: var(--text);
-            "
-          />
-          <button class="btn" onclick="addColumn()">+</button>
-        </div>
-      </div>
     </div>
 
     <div class="board" id="board"></div>
 
     <script>
       const DB_KEY = "kanban_universal_db";
-
-      const defaultConfig = {
+      let data = JSON.parse(localStorage.getItem(DB_KEY)) || {
         tasks: [],
         columns: ["BACKLOG", "EN COURS", "TERMINÉ"],
         settings: { theme: "dark" },
       };
 
-      let data = JSON.parse(localStorage.getItem(DB_KEY)) || defaultConfig;
-
       function save() {
         localStorage.setItem(DB_KEY, JSON.stringify(data));
-        applyTheme();
+        document.body.dataset.theme = data.settings.theme;
         render();
       }
 
-      function applyTheme() {
-        document.body.dataset.theme = data.settings.theme;
-      }
       function toggleTheme() {
         data.settings.theme = data.settings.theme === "dark" ? "light" : "dark";
         save();
-      }
-
-      function addColumn() {
-        const title = document
-          .getElementById("newColTitle")
-          .value.trim()
-          .toUpperCase();
-        if (title && !data.columns.includes(title)) {
-          data.columns.push(title);
-          document.getElementById("newColTitle").value = "";
-          save();
-        }
-      }
-
-      function removeColumn(title) {
-        if (confirm(`Supprimer la colonne ${title} ?`)) {
-          data.columns = data.columns.filter((c) => c !== title);
-          data.tasks = data.tasks.filter((t) => t.status !== title);
-          save();
-        }
       }
 
       function addTask() {
@@ -337,6 +276,18 @@
         save();
       }
 
+      function toggleCheck(taskId, lineIndex) {
+        const task = data.tasks.find((t) => t.id === taskId);
+        const lines = task.text.split("\n");
+        const line = lines[lineIndex];
+        if (line.includes("- [ ]"))
+          lines[lineIndex] = line.replace("- [ ]", "- [x]");
+        else if (line.includes("- [x]"))
+          lines[lineIndex] = line.replace("- [x]", "- [ ]");
+        task.text = lines.join("\n");
+        save();
+      }
+
       function onDragStart(e, id) {
         e.dataTransfer.setData("text/plain", id);
       }
@@ -347,7 +298,6 @@
       function onDragLeave(e) {
         e.currentTarget.classList.remove("drag-over");
       }
-
       function onDrop(e, status, prio, completed) {
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
@@ -359,57 +309,67 @@
       }
 
       function render() {
-        const search = document.getElementById("search").value.toLowerCase();
+        const query = document.getElementById("search").value.toLowerCase();
         const board = document.getElementById("board");
         board.innerHTML = "";
 
         data.columns.forEach((col) => {
           const colEl = document.createElement("div");
           colEl.className = "main-col";
-          colEl.innerHTML = `
-                <div class="main-col-header">
-                    <span>${col}</span>
-                    <button class="btn-danger" onclick="removeColumn('${col}')">×</button>
-                </div>
-                <div class="sub-grid">
-                    ${[1, 2, 3]
-                      .map(
-                        (p) => `
-                        <div class="prio-pair">
-                            <div class="sub-title"><span>P${p}</span><span>ACTIF</span></div>
-                            <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, false)">
-                                <div id="cont-${col}-${p}-active"></div>
-                            </div>
-                            <div class="sub-title"><span>TERMINÉ</span></div>
-                            <div class="sub-col is-done" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, true)">
-                                <div id="cont-${col}-${p}-done"></div>
-                            </div>
-                        </div>
-                    `,
-                      )
-                      .join("")}
-                </div>`;
+          colEl.innerHTML = `<div class="main-col-header">${col}</div><div class="sub-grid">${[
+            1, 2, 3,
+          ]
+            .map(
+              (p) => `
+                <div class="prio-pair">
+                    <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, false)"><div id="cont-${col}-${p}-a"></div></div>
+                    <div class="sub-col is-done" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, true)"><div id="cont-${col}-${p}-d"></div></div>
+                </div>`,
+            )
+            .join("")}</div>`;
           board.appendChild(colEl);
         });
 
         data.tasks
-          .filter((t) => t.text.toLowerCase().includes(search))
+          .filter((t) => t.text.toLowerCase().includes(query))
           .forEach((t) => {
-            const suffix = t.completed ? "done" : "active";
             const cont = document.getElementById(
-              `cont-${t.status}-${t.prio}-${suffix}`,
+              `cont-${t.status}-${t.prio}-${t.completed ? "d" : "a"}`,
             );
             if (!cont) return;
+
+            const lines = t.text.split("\n");
+            let checklistHtml = "";
+            let total = 0,
+              checked = 0;
+
+            const contentHtml = lines
+              .map((line, idx) => {
+                if (
+                  line.trim().startsWith("- [ ]") ||
+                  line.trim().startsWith("- [x]")
+                ) {
+                  total++;
+                  const isChecked = line.includes("- [x]");
+                  if (isChecked) checked++;
+                  return `<div class="checklist-item"><input type="checkbox" ${isChecked ? "checked" : ""} onchange="toggleCheck(${t.id}, ${idx})"><span>${line.replace(/- \[[ x]\]/, "")}</span></div>`;
+                }
+                return `<div>${line}</div>`;
+              })
+              .join("");
+
+            const progress = total > 0 ? (checked / total) * 100 : 0;
 
             const card = document.createElement("div");
             card.className = `card ${t.completed ? "done-task" : ""}`;
             card.draggable = true;
             card.ondragstart = (e) => onDragStart(e, t.id);
             card.innerHTML = `
-                <div class="card-text">${t.text}</div>
-                <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4; margin-top:8px;">
-                    <span onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" style="cursor:pointer; color:var(--high)">Suppr.</span>
-                    <span>#${t.id.toString().slice(-4)}</span>
+                <div class="card-text">${contentHtml}</div>
+                <div class="progress-container" style="${total > 0 ? "display:block" : ""}"><div class="progress-bar" style="width:${progress}%"></div></div>
+                <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4;">
+                    <span onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" style="cursor:pointer; color:var(--high)">SUPPR.</span>
+                    <span>${total > 0 ? checked + "/" + total : "#" + t.id.toString().slice(-4)}</span>
                 </div>`;
             cont.appendChild(card);
           });
@@ -418,28 +378,26 @@
       document.getElementById("taskText").addEventListener("keydown", (e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === "Enter") addTask();
       });
-
       function exportBackup() {
-        const blob = new Blob([JSON.stringify(data, null, 2)], {
-          type: "application/json",
-        });
         const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = `kanban_backup.json`;
+        a.href = URL.createObjectURL(
+          new Blob([JSON.stringify(data, null, 2)], {
+            type: "application/json",
+          }),
+        );
+        a.download = `kanban_v38.json`;
         a.click();
       }
-
       function importBackup(e) {
-        const reader = new FileReader();
-        reader.onload = (ev) => {
+        const r = new FileReader();
+        r.onload = (ev) => {
           data = JSON.parse(ev.target.result);
           save();
         };
-        reader.readAsText(e.target.files[0]);
+        r.readAsText(e.target.files[0]);
       }
 
-      applyTheme();
-      render();
+      save();
     </script>
   </body>
 </html>
