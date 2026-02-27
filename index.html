@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v3.4</title>
+    <title>Kanban System v3.5</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -13,6 +13,7 @@
         --high: #cf222e;
         --mid: #d29922;
         --low: #1a7f37;
+        --done: #8b949e;
       }
       [data-theme="dark"] {
         --bg: #0d1117;
@@ -78,15 +79,15 @@
 
       .board {
         display: flex;
-        gap: 15px;
+        gap: 20px;
         align-items: flex-start;
         overflow-x: auto;
         padding-bottom: 30px;
-        min-height: 70vh;
+        min-height: 75vh;
       }
       .main-col {
         flex: 1;
-        min-width: 320px;
+        min-width: 500px;
         background: var(--panel);
         border-radius: 8px;
         border: 1px solid var(--border);
@@ -98,17 +99,24 @@
         align-items: center;
         margin-bottom: 12px;
         font-weight: bold;
-        font-size: 0.85rem;
+        font-size: 0.9rem;
         letter-spacing: 1px;
       }
 
+      /* Grille : 3 priorités x 2 états (Actif / Terminé) */
       .sub-grid {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 10px;
+      }
+      .prio-pair {
         display: flex;
+        flex-direction: column;
         gap: 5px;
       }
+
       .sub-col {
-        flex: 1;
-        min-height: 250px;
+        min-height: 180px;
         background: rgba(0, 0, 0, 0.02);
         border-radius: 4px;
         padding: 5px;
@@ -118,32 +126,40 @@
         border-color: var(--accent);
         background: rgba(88, 166, 255, 0.1);
       }
+      .sub-col.is-done {
+        opacity: 0.6;
+        background: rgba(0, 0, 0, 0.05);
+      }
+
       .sub-title {
         font-size: 0.6rem;
         text-align: center;
-        margin-bottom: 8px;
+        margin-bottom: 4px;
         opacity: 0.5;
         font-weight: 900;
+        display: flex;
+        justify-content: space-between;
+        padding: 0 5px;
       }
 
       .p1-border {
-        border-top: 2px solid var(--high);
+        border-top: 3px solid var(--high);
       }
       .p2-border {
-        border-top: 2px solid var(--mid);
+        border-top: 3px solid var(--mid);
       }
       .p3-border {
-        border-top: 2px solid var(--low);
+        border-top: 3px solid var(--low);
       }
 
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
-        padding: 12px;
+        padding: 10px;
         margin-bottom: 8px;
         border-radius: 6px;
         cursor: grab;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
       .card:active {
@@ -151,19 +167,11 @@
       }
       .card-text {
         white-space: pre-wrap;
-        margin-bottom: 8px;
-        line-height: 1.4;
+        line-height: 1.3;
       }
-      .edit-textarea {
-        width: 100%;
-        background: var(--bg);
-        color: var(--text);
-        border: 1px solid var(--accent);
-        border-radius: 4px;
-        padding: 5px;
-        font-family: inherit;
-        font-size: 0.85rem;
-        box-sizing: border-box;
+      .card.done-task {
+        border-style: dashed;
+        text-decoration: line-through;
       }
 
       .btn {
@@ -188,16 +196,6 @@
         cursor: pointer;
         font-size: 1rem;
       }
-      .btn-purge {
-        font-size: 0.6rem;
-        color: var(--high);
-        border: 1px solid var(--high);
-        padding: 2px 5px;
-        background: none;
-        border-radius: 3px;
-        cursor: pointer;
-        font-weight: bold;
-      }
 
       .search-input {
         padding: 6px 12px;
@@ -212,14 +210,14 @@
   <body>
     <header>
       <div style="font-weight: 900; letter-spacing: -1px; font-size: 1.2rem">
-        KANBAN_CORE_v3.4
+        KANBAN_CORE_v3.5
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
           type="text"
           id="search"
           class="search-input"
-          placeholder="Chercher..."
+          placeholder="Filtrer..."
           oninput="render()"
         />
         <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
@@ -279,13 +277,11 @@
     <div class="board" id="board"></div>
 
     <script>
-      // Nom de la DB invariant
       const DB_KEY = "kanban_universal_db";
 
       const defaultConfig = {
         tasks: [],
-        columns: ["BACKLOG", "EN COURS"],
-        doneColumn: "ARCHIVES_LOG",
+        columns: ["BACKLOG", "PRODUCTION", "ARCHIVES"],
         settings: { theme: "dark" },
       };
 
@@ -311,11 +307,7 @@
           .getElementById("newColTitle")
           .value.trim()
           .toUpperCase();
-        if (
-          title &&
-          !data.columns.includes(title) &&
-          title !== data.doneColumn
-        ) {
+        if (title && !data.columns.includes(title)) {
           data.columns.push(title);
           document.getElementById("newColTitle").value = "";
           save();
@@ -323,16 +315,9 @@
       }
 
       function removeColumn(title) {
-        if (confirm(`Supprimer ${title} et ses tâches ?`)) {
+        if (confirm(`Supprimer ${title} ?`)) {
           data.columns = data.columns.filter((c) => c !== title);
           data.tasks = data.tasks.filter((t) => t.status !== title);
-          save();
-        }
-      }
-
-      function purgeArchives() {
-        if (confirm("Purger définitivement toutes les tâches archivées ?")) {
-          data.tasks = data.tasks.filter((t) => t.status !== data.doneColumn);
           save();
         }
       }
@@ -346,21 +331,13 @@
           text,
           prio,
           status: data.columns[0],
+          completed: false,
         });
         document.getElementById("taskText").value = "";
         save();
       }
 
-      function updateTaskText(id, newText) {
-        data.tasks = data.tasks.map((t) =>
-          t.id === id ? { ...t, text: newText } : t,
-        );
-        currentlyEditing = null;
-        save();
-      }
-
       function onDragStart(e, id) {
-        if (currentlyEditing) return e.preventDefault();
         e.dataTransfer.setData("text/plain", id);
       }
       function onDragOver(e) {
@@ -370,12 +347,13 @@
       function onDragLeave(e) {
         e.currentTarget.classList.remove("drag-over");
       }
-      function onDrop(e, status, prio) {
+
+      function onDrop(e, status, prio, completed) {
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
         const id = e.dataTransfer.getData("text/plain");
         data.tasks = data.tasks.map((t) =>
-          t.id == id ? { ...t, status, prio: parseInt(prio) } : t,
+          t.id == id ? { ...t, status, prio: parseInt(prio), completed } : t,
         );
         save();
       }
@@ -384,24 +362,30 @@
         const search = document.getElementById("search").value.toLowerCase();
         const board = document.getElementById("board");
         board.innerHTML = "";
-        const allCols = [...data.columns, data.doneColumn];
 
-        allCols.forEach((col) => {
-          const isDone = col === data.doneColumn;
+        data.columns.forEach((col) => {
           const colEl = document.createElement("div");
           colEl.className = "main-col";
           colEl.innerHTML = `
                 <div class="main-col-header">
                     <span>${col}</span>
-                    ${!isDone ? `<button class="btn-danger" onclick="removeColumn('${col}')">×</button>` : `<button class="btn-purge" onclick="purgeArchives()">PURGE</button>`}
+                    <button class="btn-danger" onclick="removeColumn('${col}')">×</button>
                 </div>
                 <div class="sub-grid">
                     ${[1, 2, 3]
                       .map(
                         (p) => `
-                        <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p})">
-                            <div class="sub-title">P${p}</div><div id="cont-${col}-${p}"></div>
-                        </div>`,
+                        <div class="prio-pair">
+                            <div class="sub-title"><span>P${p}</span><span>ACTIF</span></div>
+                            <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, false)">
+                                <div id="cont-${col}-${p}-active"></div>
+                            </div>
+                            <div class="sub-title"><span>DONE</span></div>
+                            <div class="sub-col is-done" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, true)">
+                                <div id="cont-${col}-${p}-done"></div>
+                            </div>
+                        </div>
+                    `,
                       )
                       .join("")}
                 </div>`;
@@ -411,26 +395,22 @@
         data.tasks
           .filter((t) => t.text.toLowerCase().includes(search))
           .forEach((t) => {
-            const cont = document.getElementById(`cont-${t.status}-${t.prio}`);
+            const suffix = t.completed ? "done" : "active";
+            const cont = document.getElementById(
+              `cont-${t.status}-${t.prio}-${suffix}`,
+            );
             if (!cont) return;
-            const card = document.createElement("div");
-            card.className = "card";
-            card.draggable = currentlyEditing !== t.id;
-            card.ondragstart = (e) => onDragStart(e, t.id);
 
-            if (currentlyEditing === t.id) {
-              card.innerHTML = `<textarea id="edit-${t.id}" class="edit-textarea" rows="4">${t.text}</textarea>
-                    <div style="margin-top:5px; display:flex; gap:5px;">
-                        <button class="btn-primary" onclick="updateTaskText(${t.id}, document.getElementById('edit-${t.id}').value)">SAVE</button>
-                        <button class="btn" onclick="currentlyEditing=null;render()">EXIT</button>
-                    </div>`;
-            } else {
-              card.innerHTML = `<div class="card-text" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
-                    <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4; margin-top:8px;">
-                        <span onclick="currentlyEditing=${t.id};render()" style="cursor:pointer;">EDIT</span>
-                        <span style="color:var(--high); cursor:pointer;" onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">DEL</span>
-                    </div>`;
-            }
+            const card = document.createElement("div");
+            card.className = `card ${t.completed ? "done-task" : ""}`;
+            card.draggable = true;
+            card.ondragstart = (e) => onDragStart(e, t.id);
+            card.innerHTML = `
+                <div class="card-text">${t.text}</div>
+                <div style="display:flex; justify-content:space-between; font-size:0.5rem; opacity:0.4; margin-top:5px;">
+                    <span onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" style="cursor:pointer; color:var(--high)">DEL</span>
+                    <span>#${t.id.toString().slice(-4)}</span>
+                </div>`;
             cont.appendChild(card);
           });
       }
@@ -445,7 +425,7 @@
         });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `kanban_export_universal.json`;
+        a.download = `kanban_v35.json`;
         a.click();
       }
 
