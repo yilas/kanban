@@ -2,225 +2,228 @@
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Mon Kanban Perso</title>
+    <title>Terminal_Kanban_v1.0</title>
     <style>
         :root {
-            --bg: #f0f2f5;
-            --column-bg: #ebedf0;
-            --card-bg: #ffffff;
-            --text-main: #172b4d;
-            --high: #eb5a46;
-            --medium: #f2d600;
-            --low: #61bd4f;
-            --primary: #0079bf;
+            --bg: #0d1117;
+            --column-bg: #161b22;
+            --card-bg: #0d1117;
+            --text: #c9d1d9;
+            --neon-blue: #58a6ff;
+            --neon-green: #3fb950;
+            --neon-orange: #d29922;
+            --neon-red: #f85149;
+            --border: #30363d;
         }
 
         body { 
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            font-family: 'Cascadia Code', 'Courier New', monospace; 
             background: var(--bg); 
-            color: var(--text-main);
-            margin: 0; 
-            padding: 20px; 
+            color: var(--text);
+            margin: 0; padding: 20px;
         }
-        
-        header { 
-            display: flex; 
-            justify-content: space-between; 
-            align-items: center; 
+
+        header {
+            display: flex; justify-content: space-between;
+            border-bottom: 2px solid var(--border);
+            padding-bottom: 20px; margin-bottom: 30px;
+        }
+
+        /* --- Zone de saisie "Command Center" --- */
+        .input-center {
+            background: var(--column-bg);
+            padding: 20px;
+            border: 1px solid var(--neon-blue);
+            border-radius: 4px;
             margin-bottom: 30px;
-            padding-bottom: 10px;
-            border-bottom: 1px solid #ddd;
+            display: flex; gap: 10px; align-items: flex-end;
         }
+
+        .input-group { flex-grow: 1; }
+        label { display: block; font-size: 0.8rem; color: var(--neon-blue); margin-bottom: 5px; }
+
+        textarea {
+            width: 100%; background: var(--bg); border: 1px solid var(--border);
+            color: var(--text); padding: 10px; border-radius: 4px; resize: none;
+        }
+
+        select {
+            background: var(--bg); color: var(--text); border: 1px solid var(--border);
+            padding: 10px; border-radius: 4px;
+        }
+
+        .btn-exec {
+            background: transparent; border: 1px solid var(--neon-green);
+            color: var(--neon-green); padding: 10px 20px; cursor: pointer;
+            font-weight: bold; text-transform: uppercase;
+        }
+        .btn-exec:hover { background: var(--neon-green); color: var(--bg); }
+
+        /* --- Board --- */
+        .board { display: flex; gap: 15px; overflow-x: auto; }
+
+        .column {
+            background: var(--column-bg); border: 1px solid var(--border);
+            border-radius: 4px; min-width: 350px; flex: 1;
+        }
+
+        .column-header {
+            padding: 10px; background: rgba(255,255,255,0.05);
+            border-bottom: 1px solid var(--border); font-weight: bold;
+            display: flex; justify-content: space-between;
+        }
+
+        .list { padding: 10px; min-height: 400px; }
+
+        /* --- Cards --- */
+        .card {
+            background: var(--card-bg); border: 1px solid var(--border);
+            margin-bottom: 10px; padding: 12px; position: relative;
+            border-left: 4px solid var(--border);
+        }
+
+        .card.p-3 { border-left-color: var(--neon-red); }    /* Haute */
+        .card.p-2 { border-left-color: var(--neon-orange); } /* Moyenne */
+        .card.p-1 { border-left-color: var(--neon-green); }  /* Basse */
+
+        .card-meta { font-size: 0.7rem; color: #8b949e; margin-bottom: 8px; }
+        .card-actions { margin-top: 10px; display: flex; gap: 5px; opacity: 0.5; }
+        .card:hover .card-actions { opacity: 1; }
+
+        .card-actions button {
+            background: none; border: 1px solid var(--border); color: var(--text);
+            font-size: 0.7rem; cursor: pointer; padding: 2px 5px;
+        }
+
+        .btn-del { color: var(--neon-red) !important; }
         
-        .board { 
-            display: flex; 
-            gap: 20px; 
-            overflow-x: auto;
-            padding-bottom: 20px;
-        }
-        
-        .column { 
-            background: var(--column-bg); 
-            border-radius: 10px; 
-            width: 320px; 
-            flex-shrink: 0;
-            min-height: 200px; 
-            padding: 12px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-
-        .column h2 { 
-            font-size: 1rem; 
-            text-transform: uppercase;
-            margin: 0 0 15px 0; 
-            color: #5e6c84;
-        }
-
-        .card { 
-            background: var(--card-bg); 
-            border-radius: 6px; 
-            padding: 12px; 
-            margin-bottom: 10px; 
-            box-shadow: 0 1px 2px rgba(0,0,0,0.15);
-            transition: transform 0.1s;
-        }
-
-        .priority-tag {
-            font-size: 0.7rem;
-            font-weight: bold;
-            text-transform: uppercase;
-            padding: 2px 6px;
-            border-radius: 3px;
-            color: white;
-            margin-bottom: 8px;
-            display: inline-block;
-        }
-
-        .p-haute { background: var(--high); }
-        .p-moyenne { background: var(--medium); color: #444; }
-        .p-basse { background: var(--low); }
-
-        .card-content { margin-bottom: 12px; line-height: 1.4; word-wrap: break-word; }
-
-        .controls { display: flex; gap: 4px; border-top: 1px solid #eee; pt: 8px; padding-top: 8px;}
-        
-        button { 
-            cursor: pointer; border: none; border-radius: 3px; 
-            padding: 4px 8px; font-size: 0.8rem; transition: opacity 0.2s;
-        }
-        button:hover { opacity: 0.8; }
-
-        .btn-add { background: var(--primary); color: white; width: 100%; padding: 8px; margin-top: 5px; font-weight: bold; }
-        .btn-export { background: #51e898; color: #00441b; font-weight: bold; }
-        .btn-import { background: #61bd4f; color: white; margin-left: 10px; }
-        .btn-delete { background: #eb5a46; color: white; margin-left: auto; }
-
-        textarea { 
-            width: 100%; border: 1px solid #ddd; border-radius: 5px; 
-            padding: 8px; box-sizing: border-box; resize: vertical; min-height: 60px;
-        }
-        select { width: 100%; padding: 5px; margin: 5px 0; border-radius: 5px; border: 1px solid #ddd; }
+        .util-btn { background: none; border: 1px solid var(--border); color: var(--text); cursor: pointer; padding: 5px 10px; }
     </style>
 </head>
 <body>
 
 <header>
-    <h1>📋 Kanban Browser</h1>
+    <div>> root@kanban:~# <span id="clock"></span></div>
     <div>
-        <button class="btn-export" onclick="exportData()">💾 Exporter JSON</button>
-        <button class="btn-import" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
-        <input type="file" id="fileInput" style="display:none" onchange="importData(event)">
+        <button class="util-btn" onclick="exportJSON()">EXPORT.sh</button>
+        <button class="util-btn" onclick="document.getElementById('imp').click()">IMPORT.sh</button>
+        <input type="file" id="imp" style="display:none" onchange="importJSON(event)">
     </div>
 </header>
 
+<div class="input-center">
+    <div class="input-group">
+        <label>INPUT_TEXT</label>
+        <textarea id="taskText" rows="1" placeholder="Tapez votre note ici..."></textarea>
+    </div>
+    <div style="width: 150px;">
+        <label>PRIORITY_LVL</label>
+        <select id="taskPrio">
+            <option value="3">P3 - CRITICAL</option>
+            <option value="2" selected>P2 - NORMAL</option>
+            <option value="1">P1 - LOW</option>
+        </select>
+    </div>
+    <button class="btn-exec" onclick="createTask()">EXECUTE</button>
+</div>
+
 <div class="board">
     <div class="column">
-        <h2>À Faire</h2>
-        <textarea id="taskInput" placeholder="Saisir une note..."></textarea>
-        <select id="priorityInput">
-            <option value="basse">Priorité Basse</option>
-            <option value="moyenne" selected>Priorité Moyenne</option>
-            <option value="haute">Priorité Haute</option>
-        </select>
-        <button class="btn-add" onclick="addTask()">Ajouter la note</button>
-        <div id="list-todo"></div>
+        <div class="column-header"><span>[TODO]</span><span id="count-todo">0</span></div>
+        <div id="list-todo" class="list"></div>
     </div>
-
     <div class="column">
-        <h2>En Cours</h2>
-        <div id="list-inprogress"></div>
+        <div class="column-header"><span>[PROCESSING]</span><span id="count-inprogress">0</span></div>
+        <div id="list-inprogress" class="list"></div>
     </div>
-
     <div class="column">
-        <h2>Terminé</h2>
-        <div id="list-done"></div>
+        <div class="column-header"><span>[COMPLETED]</span><span id="count-done">0</span></div>
+        <div id="list-done" class="list"></div>
     </div>
 </div>
 
 <script>
-    let tasks = JSON.parse(localStorage.getItem('my-kanban-store')) || [];
+    let db = JSON.parse(localStorage.getItem('geek-kanban')) || [];
 
-    function saveAndRender() {
-        localStorage.setItem('my-kanban-store', JSON.stringify(tasks));
+    function updateClock() {
+        const now = new Date();
+        document.getElementById('clock').innerText = now.toISOString().replace('T', ' ').slice(0, 19);
+    }
+    setInterval(updateClock, 1000);
+
+    function createTask() {
+        const text = document.getElementById('taskText').value.trim();
+        const prio = document.getElementById('taskPrio').value;
+        if(!text) return;
+
+        db.push({
+            id: Date.now(),
+            text: text,
+            prio: parseInt(prio),
+            status: 'todo'
+        });
+        
+        document.getElementById('taskText').value = '';
+        save();
+    }
+
+    function move(id, status) {
+        db = db.map(t => t.id === id ? {...t, status} : t);
+        save();
+    }
+
+    function del(id) {
+        db = db.filter(t => t.id !== id);
+        save();
+    }
+
+    function save() {
+        localStorage.setItem('geek-kanban', JSON.stringify(db));
         render();
     }
 
-    function addTask() {
-        const text = document.getElementById('taskInput').value.trim();
-        const priority = document.getElementById('priorityInput').value;
-        if (!text) return;
-
-        tasks.push({
-            id: Date.now(),
-            text: text,
-            priority: priority,
-            status: 'todo'
+    function render() {
+        const columns = ['todo', 'inprogress', 'done'];
+        columns.forEach(col => {
+            const container = document.getElementById(`list-${col}`);
+            const filtered = db.filter(t => t.status === col).sort((a,b) => b.prio - a.prio);
+            document.getElementById(`count-${col}`).innerText = filtered.length;
+            
+            container.innerHTML = filtered.map(t => `
+                <div class="card p-${t.prio}">
+                    <div class="card-meta">ID-${t.id} | PRIO: ${t.prio}</div>
+                    <div class="card-text">${t.text}</div>
+                    <div class="card-actions">
+                        ${col !== 'todo' ? `<button onclick="move(${t.id}, 'todo')"><</button>` : ''}
+                        ${col !== 'inprogress' ? `<button onclick="move(${t.id}, 'inprogress')">EXE</button>` : ''}
+                        ${col !== 'done' ? `<button onclick="move(${t.id}, 'done')">OK</button>` : ''}
+                        <button class="btn-del" onclick="del(${t.id})">RM -RF</button>
+                    </div>
+                </div>
+            `).join('');
         });
-
-        document.getElementById('taskInput').value = '';
-        saveAndRender();
     }
 
-    function move(id, newStatus) {
-        tasks = tasks.map(t => t.id === id ? {...t, status: newStatus} : t);
-        saveAndRender();
-    }
-
-    function remove(id) {
-        if(confirm("Supprimer cette note ?")) {
-            tasks = tasks.filter(t => t.id !== id);
-            saveAndRender();
-        }
-    }
-
-    function exportData() {
-        const blob = new Blob([JSON.stringify(tasks, null, 2)], {type: "application/json"});
-        const url = URL.createObjectURL(blob);
+    function exportJSON() {
+        const data = JSON.stringify(db, null, 2);
+        const blob = new Blob([data], {type: 'application/json'});
         const a = document.createElement('a');
-        a.href = url;
-        a.download = `kanban_${new Date().toISOString().split('T')[0]}.json`;
+        a.href = URL.createObjectURL(blob);
+        a.download = 'kanban_dump.json';
         a.click();
     }
 
-    function importData(e) {
+    function importJSON(e) {
         const reader = new FileReader();
-        reader.onload = (event) => {
-            try {
-                tasks = JSON.parse(event.target.result);
-                saveAndRender();
-            } catch(err) { alert("Fichier invalide"); }
+        reader.onload = (ev) => {
+            db = JSON.parse(ev.target.result);
+            save();
         };
         reader.readAsText(e.target.files[0]);
     }
 
-    function render() {
-        const containers = {
-            todo: document.getElementById('list-todo'),
-            inprogress: document.getElementById('list-inprogress'),
-            done: document.getElementById('list-done')
-        };
-
-        Object.values(containers).forEach(el => el.innerHTML = '');
-
-        tasks.forEach(task => {
-            const card = document.createElement('div');
-            card.className = 'card';
-            card.innerHTML = `
-                <div class="priority-tag p-${task.priority}">${task.priority}</div>
-                <div class="card-content">${task.text.replace(/\n/g, '<br>')}</div>
-                <div class="controls">
-                    ${task.status !== 'todo' ? `<button onclick="move(${task.id}, 'todo')">⬅️</button>` : ''}
-                    ${task.status !== 'inprogress' ? `<button onclick="move(${task.id}, 'inprogress')">⚙️</button>` : ''}
-                    ${task.status !== 'done' ? `<button onclick="move(${task.id}, 'done')">✔️</button>` : ''}
-                    <button class="btn-delete" onclick="remove(${task.id})">🗑️</button>
-                </div>
-            `;
-            containers[task.status].appendChild(card);
-        });
-    }
-
     render();
+    updateClock();
 </script>
 </body>
 </html>
