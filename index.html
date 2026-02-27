@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban perso</title>
+    <title>Kanban Workspace v3.3</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -23,7 +23,7 @@
       }
 
       body {
-        font-family: system-ui, sans-serif;
+        font-family: "Segoe UI", system-ui, sans-serif;
         background: var(--bg);
         color: var(--text);
         margin: 0;
@@ -77,15 +77,15 @@
 
       .board {
         display: flex;
-        gap: 20px;
+        gap: 15px;
         align-items: flex-start;
         overflow-x: auto;
         padding-bottom: 30px;
-        min-height: 60vh;
+        min-height: 70vh;
       }
       .main-col {
         flex: 1;
-        min-width: 350px;
+        min-width: 320px;
         background: var(--panel);
         border-radius: 8px;
         border: 1px solid var(--border);
@@ -97,9 +97,11 @@
         align-items: center;
         margin-bottom: 12px;
         font-weight: bold;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
+        letter-spacing: 1px;
       }
 
+      /* Sous-colonnes avec nouvelle logique P1/P2/P3 */
       .sub-grid {
         display: flex;
         gap: 5px;
@@ -107,7 +109,7 @@
       .sub-col {
         flex: 1;
         min-height: 250px;
-        background: rgba(0, 0, 0, 0.03);
+        background: rgba(0, 0, 0, 0.02);
         border-radius: 4px;
         padding: 5px;
         border: 1px dashed transparent;
@@ -121,18 +123,29 @@
         text-align: center;
         margin-bottom: 8px;
         opacity: 0.5;
-        font-weight: 800;
+        font-weight: 900;
       }
 
+      .p1-border {
+        border-top: 2px solid var(--high);
+      }
+      .p2-border {
+        border-top: 2px solid var(--mid);
+      }
+      .p3-border {
+        border-top: 2px solid var(--low);
+      }
+
+      /* Style des fiches */
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
         padding: 12px;
-        margin-bottom: 10px;
+        margin-bottom: 8px;
         border-radius: 6px;
         cursor: grab;
         font-size: 0.85rem;
-        box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05);
       }
       .card:active {
         cursor: grabbing;
@@ -173,8 +186,8 @@
         color: var(--high);
         border: none;
         background: none;
-        font-weight: bold;
         cursor: pointer;
+        font-size: 1rem;
       }
 
       .search-input {
@@ -183,13 +196,15 @@
         border: 1px solid var(--border);
         background: var(--panel);
         color: var(--text);
-        width: 200px;
+        width: 180px;
       }
     </style>
   </head>
   <body>
     <header>
-      <h1>Kanban Workspace</h1>
+      <div style="font-weight: 900; letter-spacing: -1px; font-size: 1.2rem">
+        KANBAN_SYSTEM_v3.3
+      </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
           type="text"
@@ -201,9 +216,9 @@
         <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
           >🌓</span
         >
-        <button class="btn" onclick="exportBackup()">💾 Export JSON</button>
+        <button class="btn" onclick="exportBackup()">Export</button>
         <button class="btn" onclick="document.getElementById('imp').click()">
-          📂 Import
+          Import
         </button>
         <input
           type="file"
@@ -219,16 +234,16 @@
         <textarea
           id="taskText"
           rows="2"
-          placeholder="Nouvelle note... (Ctrl+Enter)"
+          placeholder="Nouvelle tâche... (Ctrl+Enter)"
         ></textarea>
         <div style="display: flex; flex-direction: column; gap: 5px">
           <select id="taskPrio" class="btn">
-            <option value="3">P3 - Haute</option>
-            <option value="2" selected>P2 - Moyenne</option>
-            <option value="1">P1 - Basse</option>
+            <option value="1">P1 - CRITIQUE</option>
+            <option value="2" selected>P2 - MOYENNE</option>
+            <option value="3">P3 - BASSE</option>
           </select>
           <button class="btn-primary" style="padding: 10px" onclick="addTask()">
-            AJOUTER
+            PUSH_TASK
           </button>
         </div>
       </div>
@@ -237,7 +252,7 @@
           <input
             type="text"
             id="newColTitle"
-            placeholder="Nouvelle colonne..."
+            placeholder="Nouvelle étape..."
             style="
               flex: 1;
               padding: 5px;
@@ -247,7 +262,7 @@
               color: var(--text);
             "
           />
-          <button class="btn" onclick="addColumn()">+</button>
+          <button class="btn" onclick="addColumn()">+ COL</button>
         </div>
       </div>
     </div>
@@ -257,16 +272,17 @@
     <script>
       const defaultConfig = {
         tasks: [],
-        columns: ["À FAIRE", "EN COURS", "TERMINÉ"],
-        settings: { theme: "light" },
+        columns: ["BACKLOG", "EN COURS"],
+        doneColumn: "ARCHIVES_LOG",
+        settings: { theme: "dark" },
       };
 
       let data =
-        JSON.parse(localStorage.getItem("kanban_storage")) || defaultConfig;
+        JSON.parse(localStorage.getItem("kanban_v33_storage")) || defaultConfig;
       let currentlyEditing = null;
 
       function save() {
-        localStorage.setItem("kanban_storage", JSON.stringify(data));
+        localStorage.setItem("kanban_v33_storage", JSON.stringify(data));
         applyTheme();
         render();
       }
@@ -284,7 +300,11 @@
           .getElementById("newColTitle")
           .value.trim()
           .toUpperCase();
-        if (title && !data.columns.includes(title)) {
+        if (
+          title &&
+          !data.columns.includes(title) &&
+          title !== data.doneColumn
+        ) {
           data.columns.push(title);
           document.getElementById("newColTitle").value = "";
           save();
@@ -292,7 +312,7 @@
       }
 
       function removeColumn(title) {
-        if (confirm(`Supprimer ${title} ?`)) {
+        if (confirm(`Supprimer ${title} ? Les tâches seront perdues.`)) {
           data.columns = data.columns.filter((c) => c !== title);
           data.tasks = data.tasks.filter((t) => t.status !== title);
           save();
@@ -321,7 +341,6 @@
         save();
       }
 
-      // --- Drag & Drop ---
       function onDragStart(e, id) {
         if (currentlyEditing) return e.preventDefault();
         e.dataTransfer.setData("text/plain", id);
@@ -348,11 +367,33 @@
         const board = document.getElementById("board");
         board.innerHTML = "";
 
-        data.columns.forEach((col) => {
+        // Fusion des colonnes actives + la colonne de fin
+        const allCols = [...data.columns, data.doneColumn];
+
+        allCols.forEach((col) => {
+          const isDone = col === data.doneColumn;
           const colEl = document.createElement("div");
           colEl.className = "main-col";
-          colEl.innerHTML = `<div class="main-col-header"><span>${col}</span><button class="btn-danger" onclick="removeColumn('${col}')">×</button></div>
-                <div class="sub-grid">${[3, 2, 1].map((p) => `<div class="sub-col" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p})"><div class="sub-title">P${p}</div><div id="cont-${col}-${p}"></div></div>`).join("")}</div>`;
+          colEl.innerHTML = `
+                <div class="main-col-header">
+                    <span>${col}</span>
+                    ${!isDone ? `<button class="btn-danger" onclick="removeColumn('${col}')">×</button>` : "<span>(END)</span>"}
+                </div>
+                <div class="sub-grid">
+                    ${[1, 2, 3]
+                      .map(
+                        (p) => `
+                        <div class="sub-col p${p}-border" 
+                             ondragover="onDragOver(event)" 
+                             ondragleave="onDragLeave(event)" 
+                             ondrop="onDrop(event, '${col}', ${p})">
+                            <div class="sub-title">P${p}</div>
+                            <div id="cont-${col}-${p}"></div>
+                        </div>
+                    `,
+                      )
+                      .join("")}
+                </div>`;
           board.appendChild(colEl);
         });
 
@@ -370,15 +411,15 @@
               card.innerHTML = `
                     <textarea id="edit-${t.id}" class="edit-textarea" rows="4">${t.text}</textarea>
                     <div style="margin-top:5px; display:flex; gap:5px;">
-                        <button class="btn-primary" style="font-size:0.6rem;" onclick="updateTaskText(${t.id}, document.getElementById('edit-${t.id}').value)">OK</button>
-                        <button class="btn" style="font-size:0.6rem;" onclick="currentlyEditing=null;render()">Annuler</button>
+                        <button class="btn-primary" onclick="updateTaskText(${t.id}, document.getElementById('edit-${t.id}').value)">SAVE</button>
+                        <button class="btn" onclick="currentlyEditing=null;render()">EXIT</button>
                     </div>`;
             } else {
               card.innerHTML = `
-                    <div class="card-text" title="Double-clic pour éditer" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
+                    <div class="card-text" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
                     <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4; margin-top:8px;">
-                        <span onclick="currentlyEditing=${t.id};render()" style="cursor:pointer;">ÉDITER</span>
-                        <span style="color:var(--high); cursor:pointer;" onclick="data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()">SUPPRIMER</span>
+                        <span onclick="currentlyEditing=${t.id};render()" style="cursor:pointer;">EDIT</span>
+                        <span style="color:var(--high); cursor:pointer;" onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">DELETE</span>
                     </div>`;
             }
             cont.appendChild(card);
@@ -395,7 +436,7 @@
         });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `kanban_export.json`;
+        a.download = `kanban_v33.json`;
         a.click();
       }
 
