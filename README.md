@@ -1,4 +1,4 @@
-# Mon Kanban Local
+# Kanban Local
 
 Un gestionnaire de tâches minimaliste de type Kanban qui s'exécute directement dans le navigateur.
 
