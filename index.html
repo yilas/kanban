@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v4.1</title>
+    <title>Kanban System v4.2</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -143,7 +143,6 @@
         cursor: grab;
         font-size: 0.85rem;
         box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
-        position: relative;
       }
       .card.editing {
         cursor: default;
@@ -192,12 +191,13 @@
         opacity: 0.6;
         transition: opacity 0.2s;
         padding: 4px;
+        border-radius: 4px;
       }
       .icon-btn:hover {
         opacity: 1;
         background: rgba(0, 0, 0, 0.05);
-        border-radius: 4px;
       }
+
       .btn {
         cursor: pointer;
         border-radius: 4px;
@@ -240,7 +240,7 @@
     <header>
       <div style="font-weight: 800; font-size: 1.2rem">
         CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v4.1</span>
+        <span style="font-weight: 300; font-size: 0.8rem">v4.2</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
@@ -323,10 +323,18 @@
         save();
       }
 
+      function duplicateTask(id) {
+        const original = data.tasks.find((t) => t.id === id);
+        if (original) {
+          const clone = { ...original, id: Date.now(), completed: false };
+          data.tasks.push(clone);
+          save();
+        }
+      }
+
       function toggleCheck(taskId, lineIndex) {
         const task = data.tasks.find((t) => t.id === taskId);
         const lines = task.text.split("\n");
-        // Regex flexible pour détecter - [ ] ou - [x] avec ou sans espaces
         if (lines[lineIndex].match(/-\s*\[\s*\]/)) {
           lines[lineIndex] = lines[lineIndex].replace(/-\s*\[\s*\]/, "- [x]");
         } else if (lines[lineIndex].match(/-\s*\[\s*x\s*\]/i)) {
@@ -359,7 +367,6 @@
       function onDragLeave(e) {
         e.currentTarget.classList.remove("drag-over");
       }
-
       function onDrop(e, status, prio, completed) {
         e.preventDefault();
         e.currentTarget.classList.remove("drag-over");
@@ -440,6 +447,7 @@
                             ? `<button class="icon-btn" onclick="updateTaskText(${t.id})" title="Sauver">💾</button>
                              <button class="icon-btn" onclick="editingTaskId=null;render()" title="Annuler">❌</button>`
                             : `<button class="icon-btn" onclick="editingTaskId=${t.id};render()" title="Modifier">📝</button>
+                             <button class="icon-btn" onclick="duplicateTask(${t.id})" title="Dupliquer">👯</button>
                              <button class="icon-btn" onclick="if(confirm('Supprimer ?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" title="Supprimer">🗑️</button>`
                         }
                     </div>
@@ -459,7 +467,7 @@
             type: "application/json",
           }),
         );
-        a.download = `kanban_v41.json`;
+        a.download = `kanban_v42.json`;
         a.click();
       }
       function importBackup(e) {
