@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban OS v3.2</title>
+    <title>Kanban perso</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -262,11 +262,11 @@
       };
 
       let data =
-        JSON.parse(localStorage.getItem("kanban_v32_storage")) || defaultConfig;
+        JSON.parse(localStorage.getItem("kanban_storage")) || defaultConfig;
       let currentlyEditing = null;
 
       function save() {
-        localStorage.setItem("kanban_v32_storage", JSON.stringify(data));
+        localStorage.setItem("kanban_storage", JSON.stringify(data));
         applyTheme();
         render();
       }
