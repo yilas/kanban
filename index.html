@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban Workspace v3.3</title>
+    <title>Kanban System v3.4</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -73,6 +73,7 @@
         display: flex;
         flex-direction: column;
         gap: 8px;
+        justify-content: center;
       }
 
       .board {
@@ -101,7 +102,6 @@
         letter-spacing: 1px;
       }
 
-      /* Sous-colonnes avec nouvelle logique P1/P2/P3 */
       .sub-grid {
         display: flex;
         gap: 5px;
@@ -136,7 +136,6 @@
         border-top: 2px solid var(--low);
       }
 
-      /* Style des fiches */
       .card {
         background: var(--bg);
         border: 1px solid var(--border);
@@ -189,6 +188,16 @@
         cursor: pointer;
         font-size: 1rem;
       }
+      .btn-purge {
+        font-size: 0.6rem;
+        color: var(--high);
+        border: 1px solid var(--high);
+        padding: 2px 5px;
+        background: none;
+        border-radius: 3px;
+        cursor: pointer;
+        font-weight: bold;
+      }
 
       .search-input {
         padding: 6px 12px;
@@ -203,14 +212,14 @@
   <body>
     <header>
       <div style="font-weight: 900; letter-spacing: -1px; font-size: 1.2rem">
-        KANBAN_SYSTEM_v3.3
+        KANBAN_CORE_v3.4
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
           type="text"
           id="search"
           class="search-input"
-          placeholder="Rechercher..."
+          placeholder="Chercher..."
           oninput="render()"
         />
         <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
@@ -252,7 +261,7 @@
           <input
             type="text"
             id="newColTitle"
-            placeholder="Nouvelle étape..."
+            placeholder="Nom colonne..."
             style="
               flex: 1;
               padding: 5px;
@@ -270,6 +279,9 @@
     <div class="board" id="board"></div>
 
     <script>
+      // Nom de la DB invariant
+      const DB_KEY = "kanban_universal_db";
+
       const defaultConfig = {
         tasks: [],
         columns: ["BACKLOG", "EN COURS"],
@@ -277,12 +289,11 @@
         settings: { theme: "dark" },
       };
 
-      let data =
-        JSON.parse(localStorage.getItem("kanban_v33_storage")) || defaultConfig;
+      let data = JSON.parse(localStorage.getItem(DB_KEY)) || defaultConfig;
       let currentlyEditing = null;
 
       function save() {
-        localStorage.setItem("kanban_v33_storage", JSON.stringify(data));
+        localStorage.setItem(DB_KEY, JSON.stringify(data));
         applyTheme();
         render();
       }
@@ -312,9 +323,16 @@
       }
 
       function removeColumn(title) {
-        if (confirm(`Supprimer ${title} ? Les tâches seront perdues.`)) {
+        if (confirm(`Supprimer ${title} et ses tâches ?`)) {
           data.columns = data.columns.filter((c) => c !== title);
           data.tasks = data.tasks.filter((t) => t.status !== title);
+          save();
+        }
+      }
+
+      function purgeArchives() {
+        if (confirm("Purger définitivement toutes les tâches archivées ?")) {
+          data.tasks = data.tasks.filter((t) => t.status !== data.doneColumn);
           save();
         }
       }
@@ -366,8 +384,6 @@
         const search = document.getElementById("search").value.toLowerCase();
         const board = document.getElementById("board");
         board.innerHTML = "";
-
-        // Fusion des colonnes actives + la colonne de fin
         const allCols = [...data.columns, data.doneColumn];
 
         allCols.forEach((col) => {
@@ -377,20 +393,15 @@
           colEl.innerHTML = `
                 <div class="main-col-header">
                     <span>${col}</span>
-                    ${!isDone ? `<button class="btn-danger" onclick="removeColumn('${col}')">×</button>` : "<span>(END)</span>"}
+                    ${!isDone ? `<button class="btn-danger" onclick="removeColumn('${col}')">×</button>` : `<button class="btn-purge" onclick="purgeArchives()">PURGE</button>`}
                 </div>
                 <div class="sub-grid">
                     ${[1, 2, 3]
                       .map(
                         (p) => `
-                        <div class="sub-col p${p}-border"
-                             ondragover="onDragOver(event)"
-                             ondragleave="onDragLeave(event)"
-                             ondrop="onDrop(event, '${col}', ${p})">
-                            <div class="sub-title">P${p}</div>
-                            <div id="cont-${col}-${p}"></div>
-                        </div>
-                    `,
+                        <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p})">
+                            <div class="sub-title">P${p}</div><div id="cont-${col}-${p}"></div>
+                        </div>`,
                       )
                       .join("")}
                 </div>`;
@@ -408,18 +419,16 @@
             card.ondragstart = (e) => onDragStart(e, t.id);
 
             if (currentlyEditing === t.id) {
-              card.innerHTML = `
-                    <textarea id="edit-${t.id}" class="edit-textarea" rows="4">${t.text}</textarea>
+              card.innerHTML = `<textarea id="edit-${t.id}" class="edit-textarea" rows="4">${t.text}</textarea>
                     <div style="margin-top:5px; display:flex; gap:5px;">
                         <button class="btn-primary" onclick="updateTaskText(${t.id}, document.getElementById('edit-${t.id}').value)">SAVE</button>
                         <button class="btn" onclick="currentlyEditing=null;render()">EXIT</button>
                     </div>`;
             } else {
-              card.innerHTML = `
-                    <div class="card-text" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
+              card.innerHTML = `<div class="card-text" ondblclick="currentlyEditing=${t.id};render()">${t.text}</div>
                     <div style="display:flex; justify-content:space-between; font-size:0.6rem; opacity:0.4; margin-top:8px;">
                         <span onclick="currentlyEditing=${t.id};render()" style="cursor:pointer;">EDIT</span>
-                        <span style="color:var(--high); cursor:pointer;" onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">DELETE</span>
+                        <span style="color:var(--high); cursor:pointer;" onclick="if(confirm('Supprimer?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}">DEL</span>
                     </div>`;
             }
             cont.appendChild(card);
@@ -436,7 +445,7 @@
         });
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = `kanban_v33.json`;
+        a.download = `kanban_export_universal.json`;
         a.click();
       }
 
