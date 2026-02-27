@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Mon Kanban Perso</title>
+    <style>
+        :root {
+            --bg: #f0f2f5;
+            --column-bg: #ebedf0;
+            --card-bg: #ffffff;
+            --text-main: #172b4d;
+            --high: #eb5a46;
+            --medium: #f2d600;
+            --low: #61bd4f;
+            --primary: #0079bf;
+        }
+
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
+            background: var(--bg); 
+            color: var(--text-main);
+            margin: 0; 
+            padding: 20px; 
+        }
+        
+        header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: center; 
+            margin-bottom: 30px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .board { 
+            display: flex; 
+            gap: 20px; 
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+        
+        .column { 
+            background: var(--column-bg); 
+            border-radius: 10px; 
+            width: 320px; 
+            flex-shrink: 0;
+            min-height: 200px; 
+            padding: 12px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .column h2 { 
+            font-size: 1rem; 
+            text-transform: uppercase;
+            margin: 0 0 15px 0; 
+            color: #5e6c84;
+        }
+
+        .card { 
+            background: var(--card-bg); 
+            border-radius: 6px; 
+            padding: 12px; 
+            margin-bottom: 10px; 
+            box-shadow: 0 1px 2px rgba(0,0,0,0.15);
+            transition: transform 0.1s;
+        }
+
+        .priority-tag {
+            font-size: 0.7rem;
+            font-weight: bold;
+            text-transform: uppercase;
+            padding: 2px 6px;
+            border-radius: 3px;
+            color: white;
+            margin-bottom: 8px;
+            display: inline-block;
+        }
+
+        .p-haute { background: var(--high); }
+        .p-moyenne { background: var(--medium); color: #444; }
+        .p-basse { background: var(--low); }
+
+        .card-content { margin-bottom: 12px; line-height: 1.4; word-wrap: break-word; }
+
+        .controls { display: flex; gap: 4px; border-top: 1px solid #eee; pt: 8px; padding-top: 8px;}
+        
+        button { 
+            cursor: pointer; border: none; border-radius: 3px; 
+            padding: 4px 8px; font-size: 0.8rem; transition: opacity 0.2s;
+        }
+        button:hover { opacity: 0.8; }
+
+        .btn-add { background: var(--primary); color: white; width: 100%; padding: 8px; margin-top: 5px; font-weight: bold; }
+        .btn-export { background: #51e898; color: #00441b; font-weight: bold; }
+        .btn-import { background: #61bd4f; color: white; margin-left: 10px; }
+        .btn-delete { background: #eb5a46; color: white; margin-left: auto; }
+
+        textarea { 
+            width: 100%; border: 1px solid #ddd; border-radius: 5px; 
+            padding: 8px; box-sizing: border-box; resize: vertical; min-height: 60px;
+        }
+        select { width: 100%; padding: 5px; margin: 5px 0; border-radius: 5px; border: 1px solid #ddd; }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>📋 Kanban Browser</h1>
+    <div>
+        <button class="btn-export" onclick="exportData()">💾 Exporter JSON</button>
+        <button class="btn-import" onclick="document.getElementById('fileInput').click()">📂 Importer</button>
+        <input type="file" id="fileInput" style="display:none" onchange="importData(event)">
+    </div>
+</header>
+
+<div class="board">
+    <div class="column">
+        <h2>À Faire</h2>
+        <textarea id="taskInput" placeholder="Saisir une note..."></textarea>
+        <select id="priorityInput">
+            <option value="basse">Priorité Basse</option>
+            <option value="moyenne" selected>Priorité Moyenne</option>
+            <option value="haute">Priorité Haute</option>
+        </select>
+        <button class="btn-add" onclick="addTask()">Ajouter la note</button>
+        <div id="list-todo"></div>
+    </div>
+
+    <div class="column">
+        <h2>En Cours</h2>
+        <div id="list-inprogress"></div>
+    </div>
+
+    <div class="column">
+        <h2>Terminé</h2>
+        <div id="list-done"></div>
+    </div>
+</div>
+
+<script>
+    let tasks = JSON.parse(localStorage.getItem('my-kanban-store')) || [];
+
+    function saveAndRender() {
+        localStorage.setItem('my-kanban-store', JSON.stringify(tasks));
+        render();
+    }
+
+    function addTask() {
+        const text = document.getElementById('taskInput').value.trim();
+        const priority = document.getElementById('priorityInput').value;
+        if (!text) return;
+
+        tasks.push({
+            id: Date.now(),
+            text: text,
+            priority: priority,
+            status: 'todo'
+        });
+
+        document.getElementById('taskInput').value = '';
+        saveAndRender();
+    }
+
+    function move(id, newStatus) {
+        tasks = tasks.map(t => t.id === id ? {...t, status: newStatus} : t);
+        saveAndRender();
+    }
+
+    function remove(id) {
+        if(confirm("Supprimer cette note ?")) {
+            tasks = tasks.filter(t => t.id !== id);
+            saveAndRender();
+        }
+    }
+
+    function exportData() {
+        const blob = new Blob([JSON.stringify(tasks, null, 2)], {type: "application/json"});
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `kanban_${new Date().toISOString().split('T')[0]}.json`;
+        a.click();
+    }
+
+    function importData(e) {
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                tasks = JSON.parse(event.target.result);
+                saveAndRender();
+            } catch(err) { alert("Fichier invalide"); }
+        };
+        reader.readAsText(e.target.files[0]);
+    }
+
+    function render() {
+        const containers = {
+            todo: document.getElementById('list-todo'),
+            inprogress: document.getElementById('list-inprogress'),
+            done: document.getElementById('list-done')
+        };
+
+        Object.values(containers).forEach(el => el.innerHTML = '');
+
+        tasks.forEach(task => {
+            const card = document.createElement('div');
+            card.className = 'card';
+            card.innerHTML = `
+                <div class="priority-tag p-${task.priority}">${task.priority}</div>
+                <div class="card-content">${task.text.replace(/\n/g, '<br>')}</div>
+                <div class="controls">
+                    ${task.status !== 'todo' ? `<button onclick="move(${task.id}, 'todo')">⬅️</button>` : ''}
+                    ${task.status !== 'inprogress' ? `<button onclick="move(${task.id}, 'inprogress')">⚙️</button>` : ''}
+                    ${task.status !== 'done' ? `<button onclick="move(${task.id}, 'done')">✔️</button>` : ''}
+                    <button class="btn-delete" onclick="remove(${task.id})">🗑️</button>
+                </div>
+            `;
+            containers[task.status].appendChild(card);
+        });
+    }
+
+    render();
+</script>
+</body>
+</html>
