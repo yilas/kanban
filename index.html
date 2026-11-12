@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kanban System v5.1</title>
+    <title>Kanban System v5.2</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -432,13 +432,23 @@
       .due-date.today { color: var(--mid); font-weight: 700; }
       .edit-due-date { width: 100%; margin-top: 7px; }
       @media (max-width: 520px) { .input-box > div { flex-wrap: wrap; } }
+      #taskLabels { width: 100%; min-width: 0; }
+      .task-labels { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 9px; }
+      .task-label {
+        display: inline-flex; align-items: center; padding: 3px 8px;
+        border-radius: 999px; border: 1px solid var(--border);
+        background: var(--panel); color: var(--text);
+        font-size: 0.72rem; font-weight: 600;
+        max-width: 100%; overflow-wrap: anywhere;
+      }
+      .edit-labels { display: block; width: 100%; margin-top: 8px; }
     </style>
   </head>
   <body>
     <header>
       <div class="brand">
         <div class="brand-name">CORE_KANBAN</div>
-        <div class="brand-meta">v5.1 · Votre tableau personnel</div>
+        <div class="brand-meta">v5.2 · Votre tableau personnel</div>
       </div>
       <div class="header-actions">
         <input type="search" id="search" class="search-input" placeholder="Rechercher une tâche…" aria-label="Rechercher une tâche" oninput="render()" />
@@ -470,6 +480,8 @@
             <option value="2" selected>P2 - MOYENNE</option>
             <option value="3">P3 - BASSE</option>
           </select>
+          <label class="due-input-label" for="taskLabels">Étiquettes (séparées par des virgules)</label>
+          <input id="taskLabels" class="btn" type="text" maxlength="500" placeholder="DevOps, Personnel…" autocomplete="off" />
           <label class="due-input-label" for="taskDueDate">Échéance (facultative)</label>
           <input type="date" id="taskDueDate" class="btn" aria-label="Date d'échéance" />
           <button class="btn-primary" style="padding: 10px" onclick="addTask()">
@@ -541,6 +553,19 @@
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      const LABEL_LIMIT = 10;
+      function validLabels(labels) {
+        return labels === undefined || (Array.isArray(labels) &&
+          labels.length <= LABEL_LIMIT &&
+          labels.every((label) => typeof label === "string" && label.length > 0 &&
+            label.length <= 32 && label.trim() === label) &&
+          new Set(labels.map((label) => label.toLocaleLowerCase())).size === labels.length);
+      }
+      function parseLabels(value) {
+        const labels = value.split(",").map((label) => label.trim()).filter(Boolean);
+        if (!validLabels(labels)) throw new Error("Étiquettes invalides : maximum 10, 32 caractères chacune, sans doublons.");
+        return labels;
+      }
       function validDueDate(value) {
         if (value === undefined || value === null || value === "") return true;
         if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
@@ -732,7 +757,7 @@ const DB_KEY = "kanban_universal_db";
           if (!isObject(task) || !validId(task.id) || ids.has(String(task.id)) ||
               typeof task.text !== "string" || !validPriority(task.prio) ||
               !value.columns.includes(task.status) || typeof task.completed !== "boolean" ||
-              !validDueDate(task.dueDate)) {
+              !validDueDate(task.dueDate) || !validLabels(task.labels)) {
             throw new Error("Tâche invalide, identifiant dupliqué ou statut inconnu");
           }
           ids.add(String(task.id));
@@ -803,11 +828,19 @@ const DB_KEY = "kanban_universal_db";
         const text = input.value.trim();
         const prio = Number(document.getElementById("taskPrio").value);
         const dueDate = document.getElementById("taskDueDate")?.value || "";
+        let labels;
+        try {
+          labels = parseLabels(document.getElementById("taskLabels")?.value || "");
+        } catch (error) {
+          alert(error.message);
+          return;
+        }
         if (!text || !validPriority(prio) || !data.columns.length || !validDueDate(dueDate)) return;
         const next = deepCopy(data);
-        next.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false, ...(dueDate ? { dueDate } : {}) });
+        next.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false, ...(dueDate ? { dueDate } : {}), ...(labels.length ? { labels } : {}) });
         saveState(next);
         input.value = "";
+        if (document.getElementById("taskLabels")) document.getElementById("taskLabels").value = "";
         if (document.getElementById("taskDueDate")) document.getElementById("taskDueDate").value = "";
       }
       function duplicateTask(id) {
@@ -843,6 +876,14 @@ const DB_KEY = "kanban_universal_db";
           if (!validDueDate(dateEditor.value)) return;
           if (dateEditor.value) updated.dueDate = dateEditor.value;
           else delete updated.dueDate;
+        }
+        const labelEditor = document.querySelector(".card.editing .edit-labels");
+        if (labelEditor) {
+          let labels;
+          try { labels = parseLabels(labelEditor.value); }
+          catch (error) { alert(error.message); return; }
+          if (labels.length) updated.labels = labels;
+          else delete updated.labels;
         }
         saveState(next);
         editingTaskId = null;
@@ -974,6 +1015,12 @@ const DB_KEY = "kanban_universal_db";
             dateEditor.value = task.dueDate || "";
             dateEditor.setAttribute?.("aria-label", "Date d'échéance de la tâche");
             content.appendChild(dateEditor);
+            const labelEditor = element("input", "edit-labels btn");
+            labelEditor.type = "text";
+            labelEditor.value = (task.labels || []).join(", ");
+            labelEditor.placeholder = "Étiquettes : DevOps, Personnel…";
+            labelEditor.setAttribute?.("aria-label", "Étiquettes séparées par des virgules");
+            content.appendChild(labelEditor);
           } else {
             task.text.split("\n").forEach((line, index) => {
               const match = line.trim().match(/^-\s*\[\s*([x ])\s*\]/i);
@@ -995,6 +1042,11 @@ const DB_KEY = "kanban_universal_db";
             });
           }
           card.appendChild(content);
+          if (!editing && task.labels?.length) {
+            const labelRow = element("div", "task-labels");
+            for (const label of task.labels) labelRow.appendChild(element("span", "task-label", label));
+            card.appendChild(labelRow);
+          }
           if (task.dueDate && !editing) {
             const state = dueStatus(task);
             const due = element("div", "due-date" + (state ? " " + state : ""),
