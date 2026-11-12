@@ -14,9 +14,10 @@ function setup(initial) {
     const node = {
       tag,
       children: [],
-      classList: { add() {}, remove() {} },
+      classList: { add() {}, remove() {}, toggle() {} },
       style: {},
       addEventListener() {},
+      setAttribute() {},
       appendChild(child) { this.children.push(child); return child; },
       replaceChildren(...children) { this.children = children; },
       click() {},
@@ -33,14 +34,17 @@ function setup(initial) {
     taskText: { value: "", addEventListener() {} },
     taskPrio: { value: "2" },
     newColTitle: { value: "" },
+    priorityFilter: { value: "all" },
   };
   const context = {
     document: {
       body: { dataset: {} },
+      addEventListener() {},
       getElementById(id) { return inputs[id]; },
       createElement,
       querySelector() { return null; },
     },
+    window: { addEventListener() {}, matchMedia: () => ({ matches: false, addEventListener() {} }) },
     localStorage: {
       getItem(key) { return store.get(key) ?? null; },
       setItem(key, value) { store.set(key, value); },
