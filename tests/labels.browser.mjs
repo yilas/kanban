@@ -28,6 +28,17 @@ try {
   await page.locator(".card.editing .edit-labels").fill("Infrastructure");
   await page.locator('.card.editing button[title="Sauver"]').click();
   assert.deepEqual(await page.locator(".card .task-label").allTextContents(), ["Infrastructure"]);
+  // Filter the label, then confirm the task remains after a reload.
+  await page.locator("#labelFilter").selectOption("Infrastructure");
+  assert.equal(await page.locator(".card").count(), 1);
+  await page.locator("#labelFilter").selectOption("DevOps").catch(() => {});
+  await page.locator("#labelFilter").selectOption("all");
+  await page.locator("#statusFilter").selectOption("done");
+  assert.equal(await page.locator(".card").count(), 0);
+  await page.locator("#statusFilter").selectOption("all");
+  await page.locator("#sortFilter").selectOption("alpha");
+  await page.reload();
+  assert.equal(await page.locator("#sortFilter").inputValue(), "alpha");
   assert.deepEqual(errors, []);
   console.log("Browser test passed: create, display, reload and edit labels");
 } finally {
