@@ -523,7 +523,33 @@
         <option value="2">P2 · Moyenne</option>
         <option value="3">P3 · Basse</option>
       </select>
-      <span class="filter-hint">La recherche et le filtre se combinent.</span>
+      <label class="filter-label" for="labelFilter">Étiquette</label>
+      <select id="labelFilter" class="btn" onchange="setAdvancedFilter('label', this.value)">
+        <option value="all">Toutes</option>
+      </select>
+      <label class="filter-label" for="statusFilter">Statut</label>
+      <select id="statusFilter" class="btn" onchange="setAdvancedFilter('status', this.value)">
+        <option value="all">Tous</option>
+        <option value="active">Actif</option>
+        <option value="done">Terminé</option>
+      </select>
+      <label class="filter-label" for="dueFilter">Échéance</label>
+      <select id="dueFilter" class="btn" onchange="setAdvancedFilter('due', this.value)">
+        <option value="all">Toutes</option>
+        <option value="overdue">En retard</option>
+        <option value="today">Aujourd'hui</option>
+        <option value="upcoming">À venir</option>
+        <option value="none">Sans échéance</option>
+      </select>
+      <label class="filter-label" for="sortFilter">Tri</label>
+      <select id="sortFilter" class="btn" onchange="setAdvancedFilter('sort', this.value)">
+        <option value="default">Ordre initial</option>
+        <option value="priority">Priorité P1 → P3</option>
+        <option value="due">Échéance proche</option>
+        <option value="alpha">Alphabétique</option>
+      </select>
+      <button class="btn" type="button" onclick="resetAdvancedFilters()">Réinitialiser les filtres</button>
+      <span class="filter-hint">Les filtres sont combinables.</span>
     </div>
     <div class="board" id="board"></div>
     <dialog id="helpDialog" aria-labelledby="helpTitle">
@@ -553,6 +579,78 @@
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      const ADVANCED_FILTER_KEY = "kanban_advanced_filters_v52";
+      const DEFAULT_ADVANCED_FILTERS = { label: "all", status: "all", due: "all", sort: "default" };
+      function readAdvancedFilters() {
+        try {
+          const stored = JSON.parse(localStorage.getItem(ADVANCED_FILTER_KEY) || "{}");
+          if (!stored || typeof stored !== "object" || Array.isArray(stored)) return { ...DEFAULT_ADVANCED_FILTERS };
+          return {
+            label: typeof stored.label === "string" ? stored.label : "all",
+            status: ["all", "active", "done"].includes(stored.status) ? stored.status : "all",
+            due: ["all", "overdue", "today", "upcoming", "none"].includes(stored.due) ? stored.due : "all",
+            sort: ["default", "priority", "due", "alpha"].includes(stored.sort) ? stored.sort : "default",
+          };
+        } catch { return { ...DEFAULT_ADVANCED_FILTERS }; }
+      }
+      let advancedFilters = readAdvancedFilters();
+      function setAdvancedFilter(key, value) {
+        if (!Object.hasOwn(DEFAULT_ADVANCED_FILTERS, key)) return;
+        if (key === "status" && !["all", "active", "done"].includes(value)) return;
+        if (key === "due" && !["all", "overdue", "today", "upcoming", "none"].includes(value)) return;
+        if (key === "sort" && !["default", "priority", "due", "alpha"].includes(value)) return;
+        if (key === "label" && value !== "all" &&
+            !data.tasks.some((task) => (task.labels || []).includes(value))) return;
+        advancedFilters[key] = value;
+        try { localStorage.setItem(ADVANCED_FILTER_KEY, JSON.stringify(advancedFilters)); } catch { /* optional preference */ }
+        render();
+      }
+      function resetAdvancedFilters() {
+        advancedFilters = { ...DEFAULT_ADVANCED_FILTERS };
+        try { localStorage.removeItem(ADVANCED_FILTER_KEY); } catch { /* optional preference */ }
+        render();
+      }
+      function filteredTasks(query) {
+        const today = todayLocal();
+        const selected = data.tasks.filter((task) => {
+          if (!task.text.toLowerCase().includes(query)) return false;
+          if (priorityFilter !== "all" && String(task.prio) !== priorityFilter) return false;
+          if (advancedFilters.label !== "all" && !(task.labels || []).includes(advancedFilters.label)) return false;
+          if (advancedFilters.status === "active" && task.completed) return false;
+          if (advancedFilters.status === "done" && !task.completed) return false;
+          const due = task.dueDate;
+          if (advancedFilters.due === "none" && due) return false;
+          if (advancedFilters.due === "overdue" && (!due || due >= today || task.completed)) return false;
+          if (advancedFilters.due === "today" && (due !== today || task.completed)) return false;
+          if (advancedFilters.due === "upcoming" && (!due || due <= today || task.completed)) return false;
+          return true;
+        });
+        if (advancedFilters.sort === "priority") selected.sort((a, b) => a.prio - b.prio);
+        if (advancedFilters.sort === "alpha") selected.sort((a, b) => a.text.localeCompare(b.text, "fr"));
+        if (advancedFilters.sort === "due") selected.sort((a, b) =>
+          (a.dueDate || "9999-12-31").localeCompare(b.dueDate || "9999-12-31"));
+        return selected;
+      }
+      function updateFilterControls() {
+        const labelSelect = document.getElementById("labelFilter");
+        if (!labelSelect) return;
+        const available = [...new Set(data.tasks.flatMap((task) => task.labels || []))].sort((a, b) => a.localeCompare(b, "fr"));
+        if (advancedFilters.label !== "all" && !available.includes(advancedFilters.label)) advancedFilters.label = "all";
+        labelSelect.replaceChildren();
+        const all = element("option", "", "Toutes");
+        all.value = "all";
+        labelSelect.appendChild(all);
+        for (const label of available) {
+          const option = element("option", "", label);
+          option.value = label;
+          labelSelect.appendChild(option);
+        }
+        labelSelect.value = advancedFilters.label;
+        for (const key of ["status", "due", "sort"]) {
+          const select = document.getElementById(key + "Filter");
+          if (select) select.value = advancedFilters[key];
+        }
+      }
       const LABEL_LIMIT = 10;
       function validLabels(labels) {
         return labels === undefined || (Array.isArray(labels) &&
@@ -928,6 +1026,8 @@ const DB_KEY = "kanban_universal_db";
         const board = document.getElementById("board");
         board.replaceChildren();
         const targets = new Map();
+        updateFilterControls();
+        const visibleTasks = filteredTasks(query);
 
         if (board.classList?.toggle) board.classList.toggle("compact-board", boardView === "compact");
         document.getElementById("viewCompact")?.setAttribute?.("aria-pressed", String(boardView === "compact"));
@@ -937,9 +1037,7 @@ const DB_KEY = "kanban_universal_db";
         for (const col of data.columns) {
           const colEl = element("div", "main-col");
           const header = element("div", "main-col-header");
-          const visibleCount = data.tasks.filter((task) => task.status === col &&
-            (priorityFilter === "all" || String(task.prio) === priorityFilter) &&
-            task.text.toLowerCase().includes(query)).length;
+          const visibleCount = visibleTasks.filter((task) => task.status === col).length;
           header.appendChild(element("span", "", col + " · " + visibleCount));
           const remove = element("button", "btn-danger-small", "×");
           remove.type = "button";
@@ -979,7 +1077,7 @@ const DB_KEY = "kanban_universal_db";
           board.appendChild(colEl);
         }
 
-        for (const task of data.tasks.filter((item) => item.text.toLowerCase().includes(query) && (priorityFilter === "all" || String(item.prio) === priorityFilter))) {
+        for (const task of visibleTasks) {
           const target = targets.get(JSON.stringify([task.status, task.prio, task.completed]));
           if (!target) continue;
           const editing = editingTaskId === task.id;
