@@ -402,6 +402,29 @@
       .compact-board .card.done-task { opacity: 0.75; }
       .compact-board .card-meta { font-size: 0.72rem; color: var(--muted); margin-bottom: 7px; }
       @media (max-width: 520px) { .view-toolbar { align-items: stretch; } .filter-hint { flex-basis: 100%; } }
+      dialog {
+        width: min(490px, calc(100vw - 28px));
+        max-height: 85vh;
+        overflow: auto;
+        padding: 24px;
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        background: var(--surface);
+        color: var(--text);
+        box-shadow: 0 24px 80px rgba(0,0,0,0.25);
+      }
+      dialog::backdrop { background: rgba(8, 15, 28, 0.64); }
+      dialog h2 { margin-top: 0; }
+      dialog li { margin-bottom: 9px; }
+      dialog .btn-primary { margin-top: 12px; }
+      .settings-hint { color: var(--muted); font-size: 0.84rem; }
+      .card-move-actions { display: flex; gap: 6px; margin: 8px 0; }
+      .card-move-actions .btn { padding: 5px 9px; min-height: 30px; }
+      .card-move-actions .btn:disabled { opacity: 0.35; cursor: not-allowed; }
+      @media (pointer: coarse) {
+        .card { cursor: default; }
+        .card-move-actions .btn { min-width: 42px; min-height: 42px; }
+      }
     </style>
   </head>
   <body>
@@ -413,6 +436,8 @@
       <div class="header-actions">
         <input type="search" id="search" class="search-input" placeholder="Rechercher une tâche…" aria-label="Rechercher une tâche" oninput="render()" />
         <button type="button" class="btn theme-toggle" onclick="toggleTheme()" aria-label="Changer le thème" title="Changer le thème">🌓</button>
+        <button class="btn" type="button" onclick="openHelp()" title="Aide (touche ?)">? Aide</button>
+        <button class="btn" type="button" onclick="openSettings()" title="Préférences">⚙ Réglages</button>
         <button class="btn" onclick="undoLast()" id="undoBtn">Annuler</button>
         <button class="btn" onclick="restoreLastDeleted()">Restaurer</button>
         <button class="btn" onclick="exportBackup()">Export</button>
@@ -480,9 +505,77 @@
       <span class="filter-hint">La recherche et le filtre se combinent.</span>
     </div>
     <div class="board" id="board"></div>
+    <dialog id="helpDialog" aria-labelledby="helpTitle">
+      <h2 id="helpTitle">Aide · CORE_KANBAN</h2>
+      <p>Organisez vos tâches dans les colonnes, avec les priorités P1, P2 et P3.</p>
+      <ul>
+        <li><strong>?</strong> : ouvrir cette aide (hors champ de saisie).</li>
+        <li><strong>Échap</strong> : fermer l'aide ou les réglages.</li>
+        <li><strong>Ctrl/⌘ + Entrée</strong> : ajouter une tâche depuis le champ de saisie.</li>
+        <li><strong>Vue compacte</strong> : déplacer une tâche avec les boutons ← et →, au clavier ou au tactile.</li>
+        <li><strong>Vue détaillée</strong> : utiliser les boutons de déplacement et les zones de priorité.</li>
+        <li><strong>Annuler</strong> : revenir sur une modification récente ; <strong>Restaurer</strong> : récupérer une suppression.</li>
+      </ul>
+      <button class="btn btn-primary" type="button" onclick="closeDialog('helpDialog')">Fermer</button>
+    </dialog>
+    <dialog id="settingsDialog" aria-labelledby="settingsTitle">
+      <h2 id="settingsTitle">Préférences</h2>
+      <label for="themePreference">Apparence</label>
+      <select id="themePreference" class="btn" onchange="setThemePreference(this.value)">
+        <option value="system">Automatique (système)</option>
+        <option value="light">Toujours clair</option>
+        <option value="dark">Toujours sombre</option>
+      </select>
+      <p class="settings-hint">Les préférences d'affichage restent dans ce navigateur.</p>
+      <button class="btn btn-primary" type="button" onclick="closeDialog('settingsDialog')">Fermer</button>
+    </dialog>
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      const THEME_PREFERENCE_KEY = "kanban_theme_preference_v50";
+      let themePreference = readPreference(THEME_PREFERENCE_KEY, ["system", "light", "dark"], "system");
+      function applyTheme() {
+        const dark = window.matchMedia?.("(prefers-color-scheme: dark)")?.matches ?? false;
+        document.body.dataset.theme = themePreference === "system" ? (dark ? "dark" : "light") : themePreference;
+      }
+      function setThemePreference(value) {
+        if (!["system", "light", "dark"].includes(value)) return;
+        themePreference = value;
+        try { localStorage.setItem(THEME_PREFERENCE_KEY, value); } catch { /* optional setting */ }
+        applyTheme();
+      }
+      function openDialog(id) {
+        const dialog = document.getElementById(id);
+        if (dialog?.showModal && !dialog.open) dialog.showModal();
+      }
+      function closeDialog(id) { document.getElementById(id)?.close?.(); }
+      function openHelp() { openDialog("helpDialog"); }
+      function openSettings() {
+        const select = document.getElementById("themePreference");
+        if (select) select.value = themePreference;
+        openDialog("settingsDialog");
+      }
+      document.addEventListener?.("keydown", (event) => {
+        const target = event.target;
+        if (event.key === "?" && !event.ctrlKey && !event.metaKey && !event.altKey &&
+            !target?.isContentEditable && !["INPUT", "TEXTAREA", "SELECT"].includes(target?.tagName)) {
+          event.preventDefault();
+          openHelp();
+        }
+      });
+      window.matchMedia?.("(prefers-color-scheme: dark)")?.addEventListener?.("change", () => {
+        if (themePreference === "system") applyTheme();
+      });
+      function moveTask(taskId, direction) {
+        const task = data.tasks.find((item) => item.id === taskId);
+        if (!task || !Number.isInteger(direction) || ![-1, 1].includes(direction)) return;
+        const current = data.columns.indexOf(task.status);
+        const destination = data.columns[current + direction];
+        if (!destination) return;
+        const next = deepCopy(data);
+        next.tasks.find((item) => item.id === taskId).status = destination;
+        saveState(next);
+      }
       const VIEW_KEY = "kanban_view_v50";
       const FILTER_KEY = "kanban_priority_filter_v50";
       const validViews = ["compact", "detailed"];
@@ -549,7 +642,7 @@ const DB_KEY = "kanban_universal_db";
         data = next;
         trash = nextTrash;
         lastSaved = serialized;
-        document.body.dataset.theme = data.settings.theme;
+        applyTheme();
         render();
       }
       function undoLast() {
@@ -655,9 +748,7 @@ const DB_KEY = "kanban_universal_db";
       }
       function save() { saveState(deepCopy(data)); }
       function toggleTheme() {
-        const next = deepCopy(data);
-        next.settings.theme = next.settings.theme === "dark" ? "light" : "dark";
-        saveState(next);
+        setThemePreference(document.body.dataset.theme === "dark" ? "light" : "dark");
       }
       function addColumn() {
         const input = document.getElementById("newColTitle");
@@ -822,6 +913,18 @@ const DB_KEY = "kanban_universal_db";
           if (boardView === "compact") {
             card.appendChild(element("div", "card-meta", "P" + task.prio + (task.completed ? " · DONE" : " · ACTIF")));
           }
+          const currentIndex = data.columns.indexOf(task.status);
+          const moveActions = element("div", "card-move-actions");
+          for (const direction of [-1, 1]) {
+            const move = element("button", "btn", direction === -1 ? "←" : "→");
+            move.type = "button";
+            move.title = direction === -1 ? "Déplacer vers la colonne précédente" : "Déplacer vers la colonne suivante";
+            move.setAttribute?.("aria-label", move.title);
+            move.disabled = currentIndex + direction < 0 || currentIndex + direction >= data.columns.length;
+            move.addEventListener("click", () => moveTask(task.id, direction));
+            moveActions.appendChild(move);
+          }
+          card.appendChild(moveActions);
           const content = element("div", "card-text");
           let total = 0;
           let checked = 0;
@@ -915,7 +1018,7 @@ const DB_KEY = "kanban_universal_db";
         };
         reader.readAsText(file);
       }
-      document.body.dataset.theme = data.settings.theme;
+      applyTheme();
       render();
     </script>
   </body>
