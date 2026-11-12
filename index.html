@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v4.4</title>
+    <title>Kanban System v4.5</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -261,7 +261,7 @@
     <header>
       <div style="font-weight: 800; font-size: 1.2rem">
         CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v4.4</span>
+        <span style="font-weight: 300; font-size: 0.8rem">v4.5</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
@@ -274,6 +274,8 @@
         <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
           >🌓</span
         >
+        <button class="btn" onclick="undoLast()" id="undoBtn">Annuler</button>
+        <button class="btn" onclick="restoreLastDeleted()">Restaurer</button>
         <button class="btn" onclick="exportBackup()">Export</button>
         <button class="btn" onclick="document.getElementById('imp').click()">
           Import
@@ -340,6 +342,73 @@
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      const TRASH_KEY = "kanban_universal_trash_v45";
+      const SNAPSHOT_KEY = "kanban_universal_snapshot_v45";
+      let undoStack = [];
+      let trash = [];
+      let lastSaved = null;
+      let conflicted = false;
+      function deepCopy(value) { return JSON.parse(JSON.stringify(value)); }
+      function checkConflict() {
+        if (conflicted || localStorage.getItem(DB_KEY) !== lastSaved) {
+          conflicted = true;
+          alert("Modification dans un autre onglet détectée. Rechargez cette page.");
+          throw new Error("Conflit entre onglets");
+        }
+      }
+      function saveState(next, nextTrash = trash, recordUndo = true) {
+        validateData(next);
+        checkConflict();
+        const previous = { data: deepCopy(data), trash: deepCopy(trash) };
+        localStorage.setItem(SNAPSHOT_KEY, JSON.stringify(previous));
+        localStorage.setItem(TRASH_KEY, JSON.stringify(nextTrash));
+        const serialized = JSON.stringify(next);
+        localStorage.setItem(DB_KEY, serialized);
+        if (recordUndo) {
+          undoStack.push(previous);
+          if (undoStack.length > 20) undoStack.shift();
+        }
+        data = next;
+        trash = nextTrash;
+        lastSaved = serialized;
+        document.body.dataset.theme = data.settings.theme;
+        render();
+      }
+      function undoLast() {
+        if (!undoStack.length) return;
+        checkConflict();
+        const previous = undoStack[undoStack.length - 1];
+        saveState(previous.data, previous.trash, false);
+        undoStack.pop();
+      }
+      function restoreLastDeleted() {
+        if (!trash.length) return alert("Corbeille vide");
+        if (!confirm("Restaurer les dernières tâches supprimées ?")) return;
+        const entry = trash[trash.length - 1];
+        const next = deepCopy(data);
+        for (const original of entry.tasks) {
+          const task = { ...original };
+          if (next.tasks.some((item) => String(item.id) === String(task.id))) task.id = newTaskId();
+          if (!next.columns.includes(task.status)) task.status = next.columns[0];
+          next.tasks.push(task);
+        }
+        saveState(next, trash.slice(0, -1));
+      }
+      function removeTasks(ids) {
+        const removed = data.tasks.filter((task) => ids.includes(String(task.id)));
+        if (!removed.length) return;
+        const next = deepCopy(data);
+        next.tasks = next.tasks.filter((task) => !ids.includes(String(task.id)));
+        saveState(next, [...trash, { tasks: removed, deletedAt: new Date().toISOString() }]);
+      }
+      window.addEventListener("storage", (event) => {
+        if (event.key === DB_KEY || event.key === null) {
+          if (localStorage.getItem(DB_KEY) !== lastSaved) {
+            conflicted = true;
+            alert("Les données ont changé dans un autre onglet. Rechargez cette page.");
+          }
+        }
+      });
       const DEFAULT_COLUMNS = ["BACKLOG", "EN COURS", "TERMINÉ"];
       const DEFAULT_DATA = () => ({
         tasks: [],
@@ -385,6 +454,19 @@ const DB_KEY = "kanban_universal_db";
       }
 
       let data = readData();
+      lastSaved = localStorage.getItem(DB_KEY);
+      try {
+        const storedTrash = JSON.parse(localStorage.getItem(TRASH_KEY) || "[]");
+        if (!Array.isArray(storedTrash) || !storedTrash.every((entry) =>
+          entry && Array.isArray(entry.tasks) && entry.tasks.every((task) =>
+            task && validId(task.id) && typeof task.text === "string" &&
+            validPriority(task.prio) && typeof task.status === "string" &&
+            typeof task.completed === "boolean"))) throw new Error("Invalid trash");
+        trash = storedTrash;
+      } catch (error) {
+        alert("Corbeille invalide : sauvegarde bloquée pour préserver les données.");
+        conflicted = true;
+      }
       let editingTaskId = null;
       function newTaskId() {
         let id;
@@ -393,23 +475,20 @@ const DB_KEY = "kanban_universal_db";
         } while (data.tasks.some((task) => String(task.id) === id));
         return id;
       }
-      function save() {
-        validateData(data);
-        localStorage.setItem(DB_KEY, JSON.stringify(data));
-        document.body.dataset.theme = data.settings.theme;
-        render();
-      }
+      function save() { saveState(deepCopy(data)); }
       function toggleTheme() {
-        data.settings.theme = data.settings.theme === "dark" ? "light" : "dark";
-        save();
+        const next = deepCopy(data);
+        next.settings.theme = next.settings.theme === "dark" ? "light" : "dark";
+        saveState(next);
       }
       function addColumn() {
         const input = document.getElementById("newColTitle");
         const title = input.value.trim().toUpperCase();
         if (!validColumn(title) || data.columns.includes(title)) return;
-        data.columns.push(title);
+        const next = deepCopy(data);
+        next.columns.push(title);
+        saveState(next);
         input.value = "";
-        save();
       }
       function removeColumn(title) {
         if (!data.columns.includes(title) || data.columns.length <= 1) {
@@ -417,9 +496,11 @@ const DB_KEY = "kanban_universal_db";
           return;
         }
         if (confirm('Supprimer la colonne "' + title + '" et TOUTES les tâches associées ?')) {
-          data.columns = data.columns.filter((column) => column !== title);
-          data.tasks = data.tasks.filter((task) => task.status !== title);
-          save();
+          const removed = data.tasks.filter((task) => task.status === title);
+          const next = deepCopy(data);
+          next.columns = next.columns.filter((column) => column !== title);
+          next.tasks = next.tasks.filter((task) => task.status !== title);
+          saveState(next, removed.length ? [...trash, { tasks: removed, deletedAt: new Date().toISOString() }] : trash);
         }
       }
       function addTask() {
@@ -427,15 +508,17 @@ const DB_KEY = "kanban_universal_db";
         const text = input.value.trim();
         const prio = Number(document.getElementById("taskPrio").value);
         if (!text || !validPriority(prio) || !data.columns.length) return;
-        data.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false });
+        const next = deepCopy(data);
+        next.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false });
+        saveState(next);
         input.value = "";
-        save();
       }
       function duplicateTask(id) {
         const original = data.tasks.find((task) => task.id === id);
         if (!original) return;
-        data.tasks.push({ ...original, id: newTaskId(), completed: false });
-        save();
+        const next = deepCopy(data);
+        next.tasks.push({ ...original, id: newTaskId(), completed: false });
+        saveState(next);
       }
       function toggleCheck(taskId, lineIndex) {
         const task = data.tasks.find((item) => item.id === taskId);
@@ -447,16 +530,18 @@ const DB_KEY = "kanban_universal_db";
         } else if (/-\s*\[\s*x\s*\]/i.test(lines[lineIndex])) {
           lines[lineIndex] = lines[lineIndex].replace(/-\s*\[\s*x\s*\]/i, "- [ ]");
         }
-        task.text = lines.join("\n");
-        save();
+        const next = deepCopy(data);
+        next.tasks.find((item) => item.id === taskId).text = lines.join("\n");
+        saveState(next);
       }
       function updateTaskText(taskId) {
         const task = data.tasks.find((item) => item.id === taskId);
         const editor = document.querySelector(".card.editing textarea");
         if (!task || !editor) return;
-        task.text = editor.value;
+        const next = deepCopy(data);
+        next.tasks.find((item) => item.id === taskId).text = editor.value;
+        saveState(next);
         editingTaskId = null;
-        save();
       }
       function onDragStart(event, id) {
         if (editingTaskId !== null) return event.preventDefault();
@@ -476,8 +561,9 @@ const DB_KEY = "kanban_universal_db";
         const id = event.dataTransfer.getData("text/plain");
         const task = data.tasks.find((item) => String(item.id) === id);
         if (!task) return;
-        Object.assign(task, { status, prio, completed });
-        save();
+        const next = deepCopy(data);
+        Object.assign(next.tasks.find((item) => String(item.id) === id), { status, prio, completed });
+        saveState(next);
       }
       function element(tag, className, text) {
         const node = document.createElement(tag);
@@ -582,8 +668,7 @@ const DB_KEY = "kanban_universal_db";
             actions.appendChild(button("👯", "Dupliquer", () => duplicateTask(task.id)));
             actions.appendChild(button("🗑️", "Supprimer", () => {
               if (confirm("Supprimer ?")) {
-                data.tasks = data.tasks.filter((item) => item.id !== task.id);
-                save();
+                removeTasks([String(task.id)]);
               }
             }));
           }
@@ -602,7 +687,7 @@ const DB_KEY = "kanban_universal_db";
         const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
         const anchor = document.createElement("a");
         anchor.href = url;
-        anchor.download = "kanban_v44.json";
+        anchor.download = "kanban_v45.json";
         anchor.click();
         setTimeout(() => URL.revokeObjectURL(url), 0);
       }
@@ -614,11 +699,8 @@ const DB_KEY = "kanban_universal_db";
           try {
             const imported = validateData(JSON.parse(reader.result));
             if (!confirm("Remplacer toutes les données actuelles par cette sauvegarde ?")) return;
-            localStorage.setItem(DB_KEY, JSON.stringify(imported));
-            data = imported;
+            saveState(deepCopy(imported));
             editingTaskId = null;
-            document.body.dataset.theme = data.settings.theme;
-            render();
           } catch (error) {
             alert("Import refusé : " + error.message);
           } finally {
