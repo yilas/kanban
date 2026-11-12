@@ -60,7 +60,9 @@ test("concurrent writes are refused without overwriting external data", () => {
   const { context, db } = start(original);
   const external = JSON.stringify({ ...original, tasks: [] });
   db.set("kanban_universal_db", external);
-  assert.throws(() => vm.runInContext("toggleTheme()", context), /Conflit/);
+  // Theme changes are now UI-only and no longer write to the task database.
+  // Exercise a real task mutation so the concurrency guard must run.
+  assert.throws(() => vm.runInContext('removeTasks(["123"])', context), /Conflit/);
   assert.equal(db.get("kanban_universal_db"), external);
 });
 
