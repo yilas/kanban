@@ -762,9 +762,9 @@ const DB_KEY = "kanban_universal_db";
         board.replaceChildren();
         const targets = new Map();
 
-        board.classList.toggle("compact-board", boardView === "compact");
-        document.getElementById("viewCompact").setAttribute("aria-pressed", String(boardView === "compact"));
-        document.getElementById("viewDetailed").setAttribute("aria-pressed", String(boardView === "detailed"));
+        if (board.classList?.toggle) board.classList.toggle("compact-board", boardView === "compact");
+        document.getElementById("viewCompact")?.setAttribute?.("aria-pressed", String(boardView === "compact"));
+        document.getElementById("viewDetailed")?.setAttribute?.("aria-pressed", String(boardView === "detailed"));
         document.getElementById("priorityFilter").value = priorityFilter;
 
         for (const col of data.columns) {
