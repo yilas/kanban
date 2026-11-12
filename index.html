@@ -2,7 +2,8 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v4.5</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Kanban System v5.0 — Visual Preview</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -255,39 +256,159 @@
         font-size: 0.85rem;
         box-sizing: border-box;
       }
+
+      /* v5.0 visual foundation: styling only, detailed board remains functional. */
+      :root {
+        color-scheme: light;
+        --bg: #f7f9fc;
+        --panel: #eef2f7;
+        --surface: #ffffff;
+        --border: #dce3ed;
+        --text: #202b3d;
+        --muted: #66758a;
+        --accent: #346edb;
+        --focus: #346edb;
+        --shadow: 0 6px 24px rgba(23, 39, 69, 0.045);
+      }
+      [data-theme="dark"] {
+        color-scheme: dark;
+        --bg: #0d1420;
+        --panel: #151e2d;
+        --surface: #1b2738;
+        --border: #2c3a50;
+        --text: #e6edf8;
+        --muted: #a7b6ca;
+        --accent: #78a8ff;
+        --focus: #78a8ff;
+        --shadow: 0 6px 24px rgba(0, 0, 0, 0.15);
+      }
+      * { box-sizing: border-box; }
+      body { min-height: 100vh; padding: 24px clamp(14px, 3vw, 44px); line-height: 1.5; }
+      header {
+        background: var(--surface);
+        border: 1px solid var(--border);
+        border-radius: 16px;
+        padding: 14px 18px;
+        box-shadow: var(--shadow);
+        gap: 18px;
+      }
+      .brand { display: flex; flex-direction: column; gap: 2px; min-width: 170px; }
+      .brand-name { font-size: 1.1rem; font-weight: 800; letter-spacing: 0.045em; }
+      .brand-meta { color: var(--muted); font-size: 0.72rem; font-weight: 500; }
+      .header-actions { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+      .header-actions .search-input { flex: 1 1 180px; }
+      .theme-toggle { font-size: 1.15rem; }
+      .page-intro { margin: 28px 0 18px; }
+      .page-intro h1 { margin: 0 0 3px; font-size: clamp(1.25rem, 2.5vw, 1.65rem); letter-spacing: -0.025em; }
+      .page-intro p { margin: 0; color: var(--muted); font-size: 0.87rem; }
+      .top-bar { gap: 16px; margin-bottom: 24px; align-items: stretch; }
+      .input-box, .col-management {
+        background: var(--surface);
+        border-radius: 14px;
+        padding: 16px;
+        box-shadow: var(--shadow);
+      }
+      .input-box { min-width: 0; align-items: stretch; }
+      .col-management { min-width: 250px; }
+      .section-label { color: var(--muted); font-size: 0.7rem; font-weight: 750; letter-spacing: 0.07em; }
+      textarea, .edit-area, .search-input, #newColTitle, select {
+        border: 1px solid var(--border);
+        background: var(--surface);
+        color: var(--text);
+        border-radius: 9px;
+        font: inherit;
+      }
+      textarea { min-height: 90px; }
+      .btn, .btn-primary {
+        border-radius: 9px;
+        padding: 9px 13px;
+        font-size: 0.82rem;
+        font-weight: 650;
+        min-height: 36px;
+      }
+      .btn-primary { background: var(--accent); color: #fff; cursor: pointer; }
+      [data-theme="dark"] .btn-primary { color: #0b1728; }
+      .btn:hover, .btn-primary:hover { filter: brightness(0.96); }
+      :is(button, input, select, textarea, .theme-toggle):focus-visible {
+        outline: 3px solid var(--focus);
+        outline-offset: 2px;
+      }
+      .search-input { width: min(240px, 100%); border-radius: 9px; }
+      .board { gap: 16px; min-height: 55vh; }
+      .main-col {
+        min-width: 420px;
+        border-radius: 14px;
+        padding: 15px;
+        box-shadow: var(--shadow);
+      }
+      .main-col-header { font-size: 0.85rem; letter-spacing: 0.045em; margin-bottom: 16px; }
+      .sub-grid { gap: 8px; }
+      .sub-col {
+        min-height: 125px;
+        background: var(--surface);
+        border: 1px dashed var(--border);
+        border-radius: 10px;
+        padding: 7px;
+      }
+      .sub-col.is-done { opacity: 0.78; background: var(--surface); }
+      .sub-title { font-size: 0.66rem; color: var(--muted); opacity: 1; letter-spacing: 0.035em; }
+      .card {
+        border-radius: 10px;
+        padding: 11px;
+        background: var(--surface);
+        box-shadow: 0 2px 8px rgba(23, 39, 69, 0.055);
+        overflow-wrap: anywhere;
+        transition: box-shadow 0.15s ease, transform 0.15s ease;
+      }
+      .card:hover { box-shadow: 0 6px 16px rgba(23, 39, 69, 0.11); }
+      .card-text { line-height: 1.55; }
+      .icon-btn { color: var(--text); }
+      .btn-danger-small { color: var(--high); }
+      .progress-container { height: 5px; border-radius: 4px; }
+      .progress-bar { border-radius: 4px; }
+      @media (max-width: 900px) {
+        header { align-items: stretch; flex-direction: column; }
+        .header-actions { width: 100%; }
+        .top-bar { flex-direction: column; }
+        .col-management { min-width: 0; }
+        .main-col { min-width: min(420px, 85vw); }
+      }
+      @media (max-width: 520px) {
+        body { padding: 12px; }
+        header { padding: 12px; }
+        .header-actions { gap: 6px; }
+        .header-actions .btn { padding: 8px; }
+        .input-box { flex-direction: column; }
+        .input-box textarea { width: 100%; }
+        .input-box > div { flex-direction: row !important; }
+        .input-box > div > * { flex: 1; }
+        .main-col { min-width: 360px; }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after { transition-duration: 0.01ms !important; }
+      }
     </style>
   </head>
   <body>
     <header>
-      <div style="font-weight: 800; font-size: 1.2rem">
-        CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v4.5</span>
+      <div class="brand">
+        <div class="brand-name">CORE_KANBAN</div>
+        <div class="brand-meta">v5.0 · Vue détaillée</div>
       </div>
-      <div style="display: flex; gap: 15px; align-items: center">
-        <input
-          type="text"
-          id="search"
-          class="search-input"
-          placeholder="Filtrer..."
-          oninput="render()"
-        />
-        <span onclick="toggleTheme()" style="cursor: pointer; font-size: 1.4rem"
-          >🌓</span
-        >
+      <div class="header-actions">
+        <input type="search" id="search" class="search-input" placeholder="Rechercher une tâche…" aria-label="Rechercher une tâche" oninput="render()" />
+        <button type="button" class="btn theme-toggle" onclick="toggleTheme()" aria-label="Changer le thème" title="Changer le thème">🌓</button>
         <button class="btn" onclick="undoLast()" id="undoBtn">Annuler</button>
         <button class="btn" onclick="restoreLastDeleted()">Restaurer</button>
         <button class="btn" onclick="exportBackup()">Export</button>
-        <button class="btn" onclick="document.getElementById('imp').click()">
-          Import
-        </button>
-        <input
-          type="file"
-          id="imp"
-          style="display: none"
-          onchange="importBackup(event)"
-        />
+        <button class="btn" onclick="document.getElementById('imp').click()">Import</button>
+        <input type="file" id="imp" accept=".json,application/json" style="display:none" onchange="importBackup(event)" />
       </div>
     </header>
+    <section class="page-intro" aria-label="Tableau de tâches">
+      <h1>Mon tableau</h1>
+      <p>Organisez vos tâches, priorités et listes de contrôle.</p>
+    </section>
 
     <div class="top-bar">
       <div class="input-box">
@@ -308,16 +429,7 @@
         </div>
       </div>
       <div class="col-management">
-        <div
-          style="
-            font-size: 0.7rem;
-            font-weight: bold;
-            opacity: 0.6;
-            margin-bottom: 5px;
-          "
-        >
-          GESTION DES COLONNES
-        </div>
+        <div class="section-label">GESTION DES COLONNES</div>
         <div style="display: flex; gap: 5px">
           <input
             type="text"
