@@ -1038,8 +1038,13 @@ const DB_KEY = "kanban_universal_db";
           if (labels.length) updated.labels = labels;
           else delete updated.labels;
         }
-        saveState(next);
         editingTaskId = null;
+        try {
+          saveState(next);
+        } catch (error) {
+          editingTaskId = taskId;
+          throw error;
+        }
       }
       function onDragStart(event, id) {
         if (editingTaskId !== null) return event.preventDefault();
