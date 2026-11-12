@@ -1,0 +1,27 @@
+name: v4.4 tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  validate-v44:
+    name: Validate v4.4
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Check inline JavaScript syntax
+        run: |
+          node -e "const fs=require('fs');const s=fs.readFileSync('index.html','utf8').match(/<script>([\s\S]*?)<\/script>/)[1];fs.writeFileSync('/tmp/kanban-inline.js',s)"
+          node --check /tmp/kanban-inline.js
+      - name: Run regression tests
+        run: node --test tests/v44.test.mjs

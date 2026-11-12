@@ -2,7 +2,7 @@
 <html lang="fr">
   <head>
     <meta charset="UTF-8" />
-    <title>Kanban System v4.3</title>
+    <title>Kanban System v4.4</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -261,7 +261,7 @@
     <header>
       <div style="font-weight: 800; font-size: 1.2rem">
         CORE_KANBAN
-        <span style="font-weight: 300; font-size: 0.8rem">v4.3</span>
+        <span style="font-weight: 300; font-size: 0.8rem">v4.4</span>
       </div>
       <div style="display: flex; gap: 15px; align-items: center">
         <input
@@ -339,225 +339,300 @@
     <div class="board" id="board"></div>
 
     <script>
-      const DB_KEY = "kanban_universal_db";
-      let data = JSON.parse(localStorage.getItem(DB_KEY)) || {
+const DB_KEY = "kanban_universal_db";
+      const DEFAULT_COLUMNS = ["BACKLOG", "EN COURS", "TERMINÉ"];
+      const DEFAULT_DATA = () => ({
         tasks: [],
-        columns: ["BACKLOG", "EN COURS", "TERMINÉ"],
+        columns: [...DEFAULT_COLUMNS],
         settings: { theme: "dark" },
-      };
-      let editingTaskId = null;
+      });
+      const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+      const validId = (id) => (typeof id === "string" && id.length > 0) ||
+        (typeof id === "number" && Number.isSafeInteger(id) && id >= 0);
+      const validColumn = (title) => typeof title === "string" &&
+        title.trim() === title && title.length > 0 && title.length <= 100;
+      const validPriority = (priority) => Number.isInteger(priority) && priority >= 1 && priority <= 3;
 
+      function validateData(value) {
+        if (!isObject(value) || !Array.isArray(value.columns) || !Array.isArray(value.tasks) ||
+            !isObject(value.settings) || !["dark", "light"].includes(value.settings.theme)) {
+          throw new Error("Structure de sauvegarde invalide");
+        }
+        if (value.columns.length === 0 || !value.columns.every(validColumn) ||
+            new Set(value.columns).size !== value.columns.length) {
+          throw new Error("Colonnes invalides ou en double");
+        }
+        const ids = new Set();
+        for (const task of value.tasks) {
+          if (!isObject(task) || !validId(task.id) || ids.has(String(task.id)) ||
+              typeof task.text !== "string" || !validPriority(task.prio) ||
+              !value.columns.includes(task.status) || typeof task.completed !== "boolean") {
+            throw new Error("Tâche invalide, identifiant dupliqué ou statut inconnu");
+          }
+          ids.add(String(task.id));
+        }
+        return value;
+      }
+
+      function readData() {
+        try {
+          const raw = localStorage.getItem(DB_KEY);
+          return raw === null ? DEFAULT_DATA() : validateData(JSON.parse(raw));
+        } catch (error) {
+          alert("Données locales invalides : aucune écriture ne sera effectuée. Exportez une sauvegarde avant de continuer.");
+          throw error;
+        }
+      }
+
+      let data = readData();
+      let editingTaskId = null;
+      function newTaskId() {
+        let id;
+        do {
+          id = crypto.randomUUID();
+        } while (data.tasks.some((task) => String(task.id) === id));
+        return id;
+      }
       function save() {
+        validateData(data);
         localStorage.setItem(DB_KEY, JSON.stringify(data));
         document.body.dataset.theme = data.settings.theme;
         render();
       }
-
       function toggleTheme() {
         data.settings.theme = data.settings.theme === "dark" ? "light" : "dark";
         save();
       }
-
       function addColumn() {
-        const title = document
-          .getElementById("newColTitle")
-          .value.trim()
-          .toUpperCase();
-        if (title && !data.columns.includes(title)) {
-          data.columns.push(title);
-          document.getElementById("newColTitle").value = "";
-          save();
-        }
-      }
-
-      function removeColumn(title) {
-        if (
-          confirm(
-            `Supprimer la colonne "${title}" et TOUTES les tâches associées ?`,
-          )
-        ) {
-          data.columns = data.columns.filter((c) => c !== title);
-          data.tasks = data.tasks.filter((t) => t.status !== title);
-          save();
-        }
-      }
-
-      function addTask() {
-        const text = document.getElementById("taskText").value.trim();
-        const prio = parseInt(document.getElementById("taskPrio").value);
-        if (!text) return;
-        data.tasks.push({
-          id: Date.now(),
-          text,
-          prio,
-          status: data.columns[0],
-          completed: false,
-        });
-        document.getElementById("taskText").value = "";
+        const input = document.getElementById("newColTitle");
+        const title = input.value.trim().toUpperCase();
+        if (!validColumn(title) || data.columns.includes(title)) return;
+        data.columns.push(title);
+        input.value = "";
         save();
       }
-
-      function duplicateTask(id) {
-        const original = data.tasks.find((t) => t.id === id);
-        if (original) {
-          const clone = { ...original, id: Date.now(), completed: false };
-          data.tasks.push(clone);
+      function removeColumn(title) {
+        if (!data.columns.includes(title) || data.columns.length <= 1) {
+          alert("Il faut conserver au moins une colonne.");
+          return;
+        }
+        if (confirm('Supprimer la colonne "' + title + '" et TOUTES les tâches associées ?')) {
+          data.columns = data.columns.filter((column) => column !== title);
+          data.tasks = data.tasks.filter((task) => task.status !== title);
           save();
         }
       }
-
+      function addTask() {
+        const input = document.getElementById("taskText");
+        const text = input.value.trim();
+        const prio = Number(document.getElementById("taskPrio").value);
+        if (!text || !validPriority(prio) || !data.columns.length) return;
+        data.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false });
+        input.value = "";
+        save();
+      }
+      function duplicateTask(id) {
+        const original = data.tasks.find((task) => task.id === id);
+        if (!original) return;
+        data.tasks.push({ ...original, id: newTaskId(), completed: false });
+        save();
+      }
       function toggleCheck(taskId, lineIndex) {
-        const task = data.tasks.find((t) => t.id === taskId);
+        const task = data.tasks.find((item) => item.id === taskId);
+        if (!task) return;
         const lines = task.text.split("\n");
-        if (lines[lineIndex].match(/-\s*\[\s*\]/)) {
+        if (!Number.isInteger(lineIndex) || lineIndex < 0 || lineIndex >= lines.length) return;
+        if (/-\s*\[\s*\]/.test(lines[lineIndex])) {
           lines[lineIndex] = lines[lineIndex].replace(/-\s*\[\s*\]/, "- [x]");
-        } else if (lines[lineIndex].match(/-\s*\[\s*x\s*\]/i)) {
-          lines[lineIndex] = lines[lineIndex].replace(
-            /-\s*\[\s*x\s*\]/i,
-            "- [ ]",
-          );
+        } else if (/-\s*\[\s*x\s*\]/i.test(lines[lineIndex])) {
+          lines[lineIndex] = lines[lineIndex].replace(/-\s*\[\s*x\s*\]/i, "- [ ]");
         }
         task.text = lines.join("\n");
         save();
       }
-
       function updateTaskText(taskId) {
-        const newText = document.getElementById(`edit-area-${taskId}`).value;
-        data.tasks = data.tasks.map((t) =>
-          t.id === taskId ? { ...t, text: newText } : t,
-        );
+        const task = data.tasks.find((item) => item.id === taskId);
+        const editor = document.querySelector(".card.editing textarea");
+        if (!task || !editor) return;
+        task.text = editor.value;
         editingTaskId = null;
         save();
       }
-
-      function onDragStart(e, id) {
-        if (editingTaskId) return e.preventDefault();
-        e.dataTransfer.setData("text/plain", id);
+      function onDragStart(event, id) {
+        if (editingTaskId !== null) return event.preventDefault();
+        event.dataTransfer.setData("text/plain", String(id));
       }
-      function onDragOver(e) {
-        e.preventDefault();
-        e.currentTarget.classList.add("drag-over");
+      function onDragOver(event) {
+        event.preventDefault();
+        event.currentTarget.classList.add("drag-over");
       }
-      function onDragLeave(e) {
-        e.currentTarget.classList.remove("drag-over");
+      function onDragLeave(event) {
+        event.currentTarget.classList.remove("drag-over");
       }
-
-      function onDrop(e, status, prio, completed) {
-        e.preventDefault();
-        e.currentTarget.classList.remove("drag-over");
-        const id = e.dataTransfer.getData("text/plain");
-        data.tasks = data.tasks.map((t) =>
-          t.id == id ? { ...t, status, prio: parseInt(prio), completed } : t,
-        );
+      function onDrop(event, status, prio, completed) {
+        event.preventDefault();
+        event.currentTarget.classList.remove("drag-over");
+        if (!data.columns.includes(status) || !validPriority(prio) || typeof completed !== "boolean") return;
+        const id = event.dataTransfer.getData("text/plain");
+        const task = data.tasks.find((item) => String(item.id) === id);
+        if (!task) return;
+        Object.assign(task, { status, prio, completed });
         save();
       }
-
+      function element(tag, className, text) {
+        const node = document.createElement(tag);
+        if (className) node.className = className;
+        if (text !== undefined) node.textContent = text;
+        return node;
+      }
+      function button(symbol, title, handler) {
+        const node = element("button", "icon-btn", symbol);
+        node.type = "button";
+        node.title = title;
+        node.addEventListener("click", handler);
+        return node;
+      }
       function render() {
         const query = document.getElementById("search").value.toLowerCase();
         const board = document.getElementById("board");
-        board.innerHTML = "";
+        board.replaceChildren();
+        const targets = new Map();
 
-        data.columns.forEach((col) => {
-          const colEl = document.createElement("div");
-          colEl.className = "main-col";
-          colEl.innerHTML = `<div class="main-col-header">
-                <span>${col}</span>
-                <button class="btn-danger-small" onclick="removeColumn('${col}')">×</button>
-            </div>
-            <div class="sub-grid">${[1, 2, 3]
-              .map(
-                (p) => `
-                <div class="prio-pair">
-                    <div class="sub-title">P${p} ACTIF</div>
-                    <div class="sub-col p${p}-border" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, false)"><div id="cont-${col}-${p}-a"></div></div>
-                    <div class="sub-title">P${p} DONE</div>
-                    <div class="sub-col is-done" ondragover="onDragOver(event)" ondragleave="onDragLeave(event)" ondrop="onDrop(event, '${col}', ${p}, true)"><div id="cont-${col}-${p}-d"></div></div>
-                </div>`,
-              )
-              .join("")}</div>`;
+        for (const col of data.columns) {
+          const colEl = element("div", "main-col");
+          const header = element("div", "main-col-header");
+          header.appendChild(element("span", "", col));
+          const remove = element("button", "btn-danger-small", "×");
+          remove.type = "button";
+          remove.addEventListener("click", () => removeColumn(col));
+          header.appendChild(remove);
+          colEl.appendChild(header);
+          const grid = element("div", "sub-grid");
+          for (const prio of [1, 2, 3]) {
+            const pair = element("div", "prio-pair");
+            for (const completed of [false, true]) {
+              pair.appendChild(element("div", "sub-title", "P" + prio + (completed ? " DONE" : " ACTIF")));
+              const zone = element("div", completed ? "sub-col is-done" : "sub-col p" + prio + "-border");
+              zone.addEventListener("dragover", onDragOver);
+              zone.addEventListener("dragleave", onDragLeave);
+              zone.addEventListener("drop", (event) => onDrop(event, col, prio, completed));
+              const target = element("div");
+              zone.appendChild(target);
+              pair.appendChild(zone);
+              targets.set(JSON.stringify([col, prio, completed]), target);
+            }
+            grid.appendChild(pair);
+          }
+          colEl.appendChild(grid);
           board.appendChild(colEl);
-        });
+        }
 
-        data.tasks
-          .filter((t) => t.text.toLowerCase().includes(query))
-          .forEach((t) => {
-            const suffix = t.completed ? "d" : "a";
-            const cont = document.getElementById(
-              `cont-${t.status}-${t.prio}-${suffix}`,
-            );
-            if (!cont) return;
+        for (const task of data.tasks.filter((item) => item.text.toLowerCase().includes(query))) {
+          const target = targets.get(JSON.stringify([task.status, task.prio, task.completed]));
+          if (!target) continue;
+          const editing = editingTaskId === task.id;
+          const card = element("div", "card" + (task.completed ? " done-task" : "") + (editing ? " editing" : ""));
+          card.draggable = !editing;
+          card.addEventListener("dragstart", (event) => onDragStart(event, task.id));
+          const content = element("div", "card-text");
+          let total = 0;
+          let checked = 0;
 
-            const isEditing = editingTaskId === t.id;
-            const lines = t.text.split("\n");
-            let total = 0,
-              checked = 0;
-
-            const contentHtml = isEditing
-              ? `<textarea id="edit-area-${t.id}" class="edit-area" rows="5">${t.text}</textarea>`
-              : lines
-                  .map((line, idx) => {
-                    const isCheck = line.trim().match(/^-\s*\[\s*[x ]\s*\]/i);
-                    if (isCheck) {
-                      total++;
-                      const isDone = line.match(/-\s*\[\s*x\s*\]/i);
-                      if (isDone) checked++;
-                      return `<div class="checklist-item ${isDone ? "checked" : ""}">
-                                    <input type="checkbox" ${isDone ? "checked" : ""} onchange="toggleCheck(${t.id}, ${idx})">
-                                    <span>${line.replace(/^-\s*\[\s*[x ]\s*\]/i, "")}</span>
-                                </div>`;
-                    }
-                    return `<div>${line}</div>`;
-                  })
-                  .join("");
-
-            const card = document.createElement("div");
-            card.className = `card ${t.completed ? "done-task" : ""} ${isEditing ? "editing" : ""}`;
-            card.draggable = !isEditing;
-            card.ondragstart = (e) => onDragStart(e, t.id);
-
-            card.innerHTML = `
-                <div class="card-text">${contentHtml}</div>
-                ${total > 0 && !isEditing ? `<div class="progress-container"><div class="progress-bar" style="width:${(checked / total) * 100}%"></div></div>` : ""}
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-top:10px; border-top:1px solid var(--border); padding-top:8px;">
-                    <div>
-                        ${
-                          isEditing
-                            ? `<button class="icon-btn" onclick="updateTaskText(${t.id})" title="Sauver">💾</button>
-                             <button class="icon-btn" onclick="editingTaskId=null;render()" title="Annuler">❌</button>`
-                            : `<button class="icon-btn" onclick="editingTaskId=${t.id};render()" title="Modifier">📝</button>
-                             <button class="icon-btn" onclick="duplicateTask(${t.id})" title="Dupliquer">👯</button>
-                             <button class="icon-btn" onclick="if(confirm('Supprimer ?')){data.tasks=data.tasks.filter(x=>x.id!=${t.id});save()}" title="Supprimer">🗑️</button>`
-                        }
-                    </div>
-                    <span style="font-size:0.65rem; font-weight:bold; opacity:0.6;">${total > 0 && !isEditing ? checked + "/" + total : "#" + t.id.toString().slice(-4)}</span>
-                </div>`;
-            cont.appendChild(card);
-          });
+          if (editing) {
+            const editor = element("textarea", "edit-area");
+            editor.rows = 5;
+            editor.value = task.text;
+            content.appendChild(editor);
+          } else {
+            task.text.split("\n").forEach((line, index) => {
+              const match = line.trim().match(/^-\s*\[\s*([x ])\s*\]/i);
+              if (!match) {
+                content.appendChild(element("div", "", line));
+                return;
+              }
+              total++;
+              const done = match[1].toLowerCase() === "x";
+              if (done) checked++;
+              const item = element("div", "checklist-item" + (done ? " checked" : ""));
+              const checkbox = element("input");
+              checkbox.type = "checkbox";
+              checkbox.checked = done;
+              checkbox.addEventListener("change", () => toggleCheck(task.id, index));
+              item.appendChild(checkbox);
+              item.appendChild(element("span", "", line.trim().replace(/^-\s*\[\s*[x ]\s*\]/i, "")));
+              content.appendChild(item);
+            });
+          }
+          card.appendChild(content);
+          if (total > 0 && !editing) {
+            const progress = element("div", "progress-container");
+            const bar = element("div", "progress-bar");
+            bar.style.width = (checked / total) * 100 + "%";
+            progress.appendChild(bar);
+            card.appendChild(progress);
+          }
+          const footer = element("div");
+          footer.style.cssText = "display:flex;justify-content:space-between;align-items:center;margin-top:10px;border-top:1px solid var(--border);padding-top:8px";
+          const actions = element("div");
+          if (editing) {
+            actions.appendChild(button("💾", "Sauver", () => updateTaskText(task.id)));
+            actions.appendChild(button("❌", "Annuler", () => { editingTaskId = null; render(); }));
+          } else {
+            actions.appendChild(button("📝", "Modifier", () => { editingTaskId = task.id; render(); }));
+            actions.appendChild(button("👯", "Dupliquer", () => duplicateTask(task.id)));
+            actions.appendChild(button("🗑️", "Supprimer", () => {
+              if (confirm("Supprimer ?")) {
+                data.tasks = data.tasks.filter((item) => item.id !== task.id);
+                save();
+              }
+            }));
+          }
+          footer.appendChild(actions);
+          const info = element("span", "", total > 0 && !editing ? checked + "/" + total : "#" + String(task.id).slice(-4));
+          info.style.cssText = "font-size:0.65rem;font-weight:bold;opacity:0.6";
+          footer.appendChild(info);
+          card.appendChild(footer);
+          target.appendChild(card);
+        }
       }
-
-      document.getElementById("taskText").addEventListener("keydown", (e) => {
-        if ((e.ctrlKey || e.metaKey) && e.key === "Enter") addTask();
+      document.getElementById("taskText").addEventListener("keydown", (event) => {
+        if ((event.ctrlKey || event.metaKey) && event.key === "Enter") addTask();
       });
       function exportBackup() {
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(
-          new Blob([JSON.stringify(data, null, 2)], {
-            type: "application/json",
-          }),
-        );
-        a.download = `kanban_v43.json`;
-        a.click();
+        const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = "kanban_v44.json";
+        anchor.click();
+        setTimeout(() => URL.revokeObjectURL(url), 0);
       }
-      function importBackup(e) {
-        const r = new FileReader();
-        r.onload = (ev) => {
-          data = JSON.parse(ev.target.result);
-          save();
+      function importBackup(event) {
+        const file = event.target.files?.[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = () => {
+          try {
+            const imported = validateData(JSON.parse(reader.result));
+            if (!confirm("Remplacer toutes les données actuelles par cette sauvegarde ?")) return;
+            localStorage.setItem(DB_KEY, JSON.stringify(imported));
+            data = imported;
+            editingTaskId = null;
+            document.body.dataset.theme = data.settings.theme;
+            render();
+          } catch (error) {
+            alert("Import refusé : " + error.message);
+          } finally {
+            event.target.value = "";
+          }
         };
-        r.readAsText(e.target.files[0]);
+        reader.onerror = () => {
+          alert("Lecture du fichier impossible");
+          event.target.value = "";
+        };
+        reader.readAsText(file);
       }
-
-      save();
+      document.body.dataset.theme = data.settings.theme;
+      render();
     </script>
   </body>
 </html>
