@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kanban System v5.0 — Visual Preview</title>
+    <title>Kanban System v5.0</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -387,13 +387,28 @@
       @media (prefers-reduced-motion: reduce) {
         *, *::before, *::after { transition-duration: 0.01ms !important; }
       }
+      .view-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
+      .view-switch { display: inline-flex; gap: 5px; padding: 4px; background: var(--panel); border-radius: 11px; }
+      .view-switch .btn { border: 0; background: transparent; }
+      .view-switch .btn[aria-pressed="true"] { background: var(--surface); color: var(--accent); box-shadow: var(--shadow); }
+      .filter-label, .filter-hint { color: var(--muted); font-size: 0.8rem; }
+      .compact-board .main-col { min-width: min(310px, 85vw); }
+      .compact-board .compact-dropzone { min-height: 170px; padding: 4px; border-radius: 10px; }
+      .compact-board .compact-dropzone.drag-over { outline: 2px dashed var(--accent); }
+      .compact-board .card { border-inline-start: 4px solid var(--border); }
+      .compact-board .card.priority-1 { border-inline-start-color: var(--high); }
+      .compact-board .card.priority-2 { border-inline-start-color: var(--mid); }
+      .compact-board .card.priority-3 { border-inline-start-color: var(--low); }
+      .compact-board .card.done-task { opacity: 0.75; }
+      .compact-board .card-meta { font-size: 0.72rem; color: var(--muted); margin-bottom: 7px; }
+      @media (max-width: 520px) { .view-toolbar { align-items: stretch; } .filter-hint { flex-basis: 100%; } }
     </style>
   </head>
   <body>
     <header>
       <div class="brand">
         <div class="brand-name">CORE_KANBAN</div>
-        <div class="brand-meta">v5.0 · Vue détaillée</div>
+        <div class="brand-meta">v5.0 · Votre tableau personnel</div>
       </div>
       <div class="header-actions">
         <input type="search" id="search" class="search-input" placeholder="Rechercher une tâche…" aria-label="Rechercher une tâche" oninput="render()" />
@@ -450,10 +465,61 @@
       </div>
     </div>
 
+    <div class="view-toolbar" role="group" aria-label="Options d'affichage">
+      <div class="view-switch" role="group" aria-label="Mode d'affichage">
+        <button id="viewCompact" class="btn" type="button" onclick="setBoardView('compact')" aria-pressed="false">Compacte</button>
+        <button id="viewDetailed" class="btn" type="button" onclick="setBoardView('detailed')" aria-pressed="true">Détaillée</button>
+      </div>
+      <label class="filter-label" for="priorityFilter">Priorité</label>
+      <select id="priorityFilter" class="btn" onchange="setPriorityFilter(this.value)">
+        <option value="all">Toutes</option>
+        <option value="1">P1 · Critique</option>
+        <option value="2">P2 · Moyenne</option>
+        <option value="3">P3 · Basse</option>
+      </select>
+      <span class="filter-hint">La recherche et le filtre se combinent.</span>
+    </div>
     <div class="board" id="board"></div>
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      const VIEW_KEY = "kanban_view_v50";
+      const FILTER_KEY = "kanban_priority_filter_v50";
+      const validViews = ["compact", "detailed"];
+      const validFilters = ["all", "1", "2", "3"];
+      function readPreference(key, allowed, fallback) {
+        try {
+          const value = localStorage.getItem(key);
+          return allowed.includes(value) ? value : fallback;
+        } catch {
+          return fallback;
+        }
+      }
+      let boardView = readPreference(VIEW_KEY, validViews, "detailed");
+      let priorityFilter = readPreference(FILTER_KEY, validFilters, "all");
+      function setBoardView(value) {
+        if (!validViews.includes(value)) return;
+        boardView = value;
+        try { localStorage.setItem(VIEW_KEY, value); } catch { /* non-critical preference */ }
+        render();
+      }
+      function setPriorityFilter(value) {
+        if (!validFilters.includes(value)) return;
+        priorityFilter = value;
+        try { localStorage.setItem(FILTER_KEY, value); } catch { /* non-critical preference */ }
+        render();
+      }
+      function onCompactDrop(event, status) {
+        event.preventDefault();
+        event.currentTarget.classList.remove("drag-over");
+        if (!data.columns.includes(status)) return;
+        const id = event.dataTransfer.getData("text/plain");
+        const task = data.tasks.find((item) => String(item.id) === id);
+        if (!task || task.status === status) return;
+        const next = deepCopy(data);
+        next.tasks.find((item) => String(item.id) === id).status = status;
+        saveState(next);
+      }
       const TRASH_KEY = "kanban_universal_trash_v45";
       const SNAPSHOT_KEY = "kanban_universal_snapshot_v45";
       let undoStack = [];
@@ -696,42 +762,66 @@ const DB_KEY = "kanban_universal_db";
         board.replaceChildren();
         const targets = new Map();
 
+        if (board.classList?.toggle) board.classList.toggle("compact-board", boardView === "compact");
+        document.getElementById("viewCompact")?.setAttribute?.("aria-pressed", String(boardView === "compact"));
+        document.getElementById("viewDetailed")?.setAttribute?.("aria-pressed", String(boardView === "detailed"));
+        document.getElementById("priorityFilter").value = priorityFilter;
+
         for (const col of data.columns) {
           const colEl = element("div", "main-col");
           const header = element("div", "main-col-header");
-          header.appendChild(element("span", "", col));
+          const visibleCount = data.tasks.filter((task) => task.status === col &&
+            (priorityFilter === "all" || String(task.prio) === priorityFilter) &&
+            task.text.toLowerCase().includes(query)).length;
+          header.appendChild(element("span", "", col + " · " + visibleCount));
           const remove = element("button", "btn-danger-small", "×");
           remove.type = "button";
           remove.addEventListener("click", () => removeColumn(col));
           header.appendChild(remove);
           colEl.appendChild(header);
-          const grid = element("div", "sub-grid");
-          for (const prio of [1, 2, 3]) {
-            const pair = element("div", "prio-pair");
-            for (const completed of [false, true]) {
-              pair.appendChild(element("div", "sub-title", "P" + prio + (completed ? " DONE" : " ACTIF")));
-              const zone = element("div", completed ? "sub-col is-done" : "sub-col p" + prio + "-border");
-              zone.addEventListener("dragover", onDragOver);
-              zone.addEventListener("dragleave", onDragLeave);
-              zone.addEventListener("drop", (event) => onDrop(event, col, prio, completed));
-              const target = element("div");
-              zone.appendChild(target);
-              pair.appendChild(zone);
-              targets.set(JSON.stringify([col, prio, completed]), target);
+          if (boardView === "compact") {
+            const zone = element("div", "compact-dropzone");
+            zone.addEventListener("dragover", onDragOver);
+            zone.addEventListener("dragleave", onDragLeave);
+            zone.addEventListener("drop", (event) => onCompactDrop(event, col));
+            colEl.appendChild(zone);
+            for (const prio of [1, 2, 3]) {
+              for (const completed of [false, true]) {
+                targets.set(JSON.stringify([col, prio, completed]), zone);
+              }
             }
-            grid.appendChild(pair);
+          } else {
+            const grid = element("div", "sub-grid");
+            for (const prio of [1, 2, 3]) {
+              const pair = element("div", "prio-pair");
+              for (const completed of [false, true]) {
+                pair.appendChild(element("div", "sub-title", "P" + prio + (completed ? " DONE" : " ACTIF")));
+                const zone = element("div", completed ? "sub-col is-done" : "sub-col p" + prio + "-border");
+                zone.addEventListener("dragover", onDragOver);
+                zone.addEventListener("dragleave", onDragLeave);
+                zone.addEventListener("drop", (event) => onDrop(event, col, prio, completed));
+                const target = element("div");
+                zone.appendChild(target);
+                pair.appendChild(zone);
+                targets.set(JSON.stringify([col, prio, completed]), target);
+              }
+              grid.appendChild(pair);
+            }
+            colEl.appendChild(grid);
           }
-          colEl.appendChild(grid);
           board.appendChild(colEl);
         }
 
-        for (const task of data.tasks.filter((item) => item.text.toLowerCase().includes(query))) {
+        for (const task of data.tasks.filter((item) => item.text.toLowerCase().includes(query) && (priorityFilter === "all" || String(item.prio) === priorityFilter))) {
           const target = targets.get(JSON.stringify([task.status, task.prio, task.completed]));
           if (!target) continue;
           const editing = editingTaskId === task.id;
-          const card = element("div", "card" + (task.completed ? " done-task" : "") + (editing ? " editing" : ""));
+          const card = element("div", "card priority-" + task.prio + (task.completed ? " done-task" : "") + (editing ? " editing" : ""));
           card.draggable = !editing;
           card.addEventListener("dragstart", (event) => onDragStart(event, task.id));
+          if (boardView === "compact") {
+            card.appendChild(element("div", "card-meta", "P" + task.prio + (task.completed ? " · DONE" : " · ACTIF")));
+          }
           const content = element("div", "card-text");
           let total = 0;
           let checked = 0;
