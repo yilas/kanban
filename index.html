@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kanban System v5.0</title>
+    <title>Kanban System v5.1</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -425,13 +425,20 @@
         .card { cursor: default; }
         .card-move-actions .btn { min-width: 42px; min-height: 42px; }
       }
+      .due-input-label { color: var(--muted); font-size: 0.72rem; }
+      #taskDueDate { width: 100%; min-width: 0; }
+      .due-date { font-size: 0.73rem; color: var(--muted); margin-top: 7px; }
+      .due-date.overdue { color: var(--high); font-weight: 700; }
+      .due-date.today { color: var(--mid); font-weight: 700; }
+      .edit-due-date { width: 100%; margin-top: 7px; }
+      @media (max-width: 520px) { .input-box > div { flex-wrap: wrap; } }
     </style>
   </head>
   <body>
     <header>
       <div class="brand">
         <div class="brand-name">CORE_KANBAN</div>
-        <div class="brand-meta">v5.0 · Votre tableau personnel</div>
+        <div class="brand-meta">v5.1 · Votre tableau personnel</div>
       </div>
       <div class="header-actions">
         <input type="search" id="search" class="search-input" placeholder="Rechercher une tâche…" aria-label="Rechercher une tâche" oninput="render()" />
@@ -463,6 +470,8 @@
             <option value="2" selected>P2 - MOYENNE</option>
             <option value="3">P3 - BASSE</option>
           </select>
+          <label class="due-input-label" for="taskDueDate">Échéance (facultative)</label>
+          <input type="date" id="taskDueDate" class="btn" aria-label="Date d'échéance" />
           <button class="btn-primary" style="padding: 10px" onclick="addTask()">
             AJOUTER
           </button>
@@ -532,6 +541,22 @@
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      function validDueDate(value) {
+        if (value === undefined || value === null || value === "") return true;
+        if (typeof value !== "string" || !/^\\d{4}-\\d{2}-\\d{2}$/.test(value)) return false;
+        const [year, month, day] = value.split("-").map(Number);
+        const date = new Date(Date.UTC(year, month - 1, day));
+        return date.getUTCFullYear() === year && date.getUTCMonth() + 1 === month && date.getUTCDate() === day;
+      }
+      function todayLocal() {
+        const now = new Date();
+        return [now.getFullYear(), String(now.getMonth() + 1).padStart(2, "0"), String(now.getDate()).padStart(2, "0")].join("-");
+      }
+      function dueStatus(task) {
+        if (!task.dueDate || task.completed) return "";
+        const today = todayLocal();
+        return task.dueDate < today ? "overdue" : task.dueDate === today ? "today" : "";
+      }
       const THEME_PREFERENCE_KEY = "kanban_theme_preference_v50";
       let themePreference = readPreference(THEME_PREFERENCE_KEY, ["system", "light", "dark"], "system");
       function applyTheme() {
@@ -706,7 +731,8 @@ const DB_KEY = "kanban_universal_db";
         for (const task of value.tasks) {
           if (!isObject(task) || !validId(task.id) || ids.has(String(task.id)) ||
               typeof task.text !== "string" || !validPriority(task.prio) ||
-              !value.columns.includes(task.status) || typeof task.completed !== "boolean") {
+              !value.columns.includes(task.status) || typeof task.completed !== "boolean" ||
+              !validDueDate(task.dueDate)) {
             throw new Error("Tâche invalide, identifiant dupliqué ou statut inconnu");
           }
           ids.add(String(task.id));
@@ -776,11 +802,13 @@ const DB_KEY = "kanban_universal_db";
         const input = document.getElementById("taskText");
         const text = input.value.trim();
         const prio = Number(document.getElementById("taskPrio").value);
-        if (!text || !validPriority(prio) || !data.columns.length) return;
+        const dueDate = document.getElementById("taskDueDate")?.value || "";
+        if (!text || !validPriority(prio) || !data.columns.length || !validDueDate(dueDate)) return;
         const next = deepCopy(data);
-        next.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false });
+        next.tasks.push({ id: newTaskId(), text, prio, status: data.columns[0], completed: false, ...(dueDate ? { dueDate } : {}) });
         saveState(next);
         input.value = "";
+        if (document.getElementById("taskDueDate")) document.getElementById("taskDueDate").value = "";
       }
       function duplicateTask(id) {
         const original = data.tasks.find((task) => task.id === id);
@@ -808,7 +836,14 @@ const DB_KEY = "kanban_universal_db";
         const editor = document.querySelector(".card.editing textarea");
         if (!task || !editor) return;
         const next = deepCopy(data);
-        next.tasks.find((item) => item.id === taskId).text = editor.value;
+        const updated = next.tasks.find((item) => item.id === taskId);
+        updated.text = editor.value;
+        const dateEditor = document.querySelector(".card.editing .edit-due-date");
+        if (dateEditor) {
+          if (!validDueDate(dateEditor.value)) return;
+          if (dateEditor.value) updated.dueDate = dateEditor.value;
+          else delete updated.dueDate;
+        }
         saveState(next);
         editingTaskId = null;
       }
@@ -934,6 +969,11 @@ const DB_KEY = "kanban_universal_db";
             editor.rows = 5;
             editor.value = task.text;
             content.appendChild(editor);
+            const dateEditor = element("input", "edit-due-date btn");
+            dateEditor.type = "date";
+            dateEditor.value = task.dueDate || "";
+            dateEditor.setAttribute?.("aria-label", "Date d'échéance de la tâche");
+            content.appendChild(dateEditor);
           } else {
             task.text.split("\n").forEach((line, index) => {
               const match = line.trim().match(/^-\s*\[\s*([x ])\s*\]/i);
@@ -955,6 +995,12 @@ const DB_KEY = "kanban_universal_db";
             });
           }
           card.appendChild(content);
+          if (task.dueDate && !editing) {
+            const state = dueStatus(task);
+            const due = element("div", "due-date" + (state ? " " + state : ""),
+              (state === "overdue" ? "En retard · " : state === "today" ? "Aujourd'hui · " : "Échéance · ") + task.dueDate);
+            card.appendChild(due);
+          }
           if (total > 0 && !editing) {
             const progress = element("div", "progress-container");
             const bar = element("div", "progress-bar");
