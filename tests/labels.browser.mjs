@@ -27,6 +27,9 @@ try {
   await reloaded.locator('button[title="Modifier"]').click();
   await page.locator(".card.editing .edit-labels").fill("Infrastructure");
   await page.locator('.card.editing button[title="Sauver"]').click();
+  await page.locator(".card .task-label").filter({ hasText: "Infrastructure" }).waitFor();
+  assert.deepEqual(await page.locator(".card .task-label").allTextContents(), ["Infrastructure"]);
+  await page.reload();
   assert.deepEqual(await page.locator(".card .task-label").allTextContents(), ["Infrastructure"]);
   // Filter the label, then confirm the task remains after a reload.
   await page.locator("#labelFilter").selectOption("Infrastructure");
