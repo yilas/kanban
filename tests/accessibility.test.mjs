@@ -17,6 +17,7 @@ function boot() {
   const elements = new Map();
   const createElement = (tag) => ({
     tagName: tag.toUpperCase(),
+    value: "",
     children: [], style: {}, classList: { add() {}, remove() {}, toggle() {} },
     appendChild(child) { this.children.push(child); },
     replaceChildren(...children) { this.children = children; },
