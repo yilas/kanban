@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Kanban System v5.2</title>
+    <title>Kanban System v5.2 — Archives</title>
     <style>
       :root {
         --bg: #ffffff;
@@ -442,6 +442,11 @@
         max-width: 100%; overflow-wrap: anywhere;
       }
       .edit-labels { display: block; width: 100%; margin-top: 8px; }
+      #archiveList { display: grid; gap: 10px; margin: 18px 0; }
+      .archive-entry { border: 1px solid var(--border); border-radius: 10px; padding: 12px; background: var(--panel); }
+      .archive-entry-text { white-space: pre-wrap; overflow-wrap: anywhere; }
+      .archive-entry-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 8px; }
+      .archive-empty { color: var(--muted); }
     </style>
   </head>
   <body>
@@ -456,6 +461,7 @@
         <button class="btn" type="button" onclick="openHelp()" title="Aide (touche ?)">? Aide</button>
         <button class="btn" type="button" onclick="openSettings()" title="Préférences">⚙ Réglages</button>
         <button class="btn" onclick="undoLast()" id="undoBtn">Annuler</button>
+        <button class="btn" type="button" onclick="openArchives()">Archives <span id="archiveCount"></span></button>
         <button class="btn" onclick="restoreLastDeleted()">Restaurer</button>
         <button class="btn" onclick="exportBackup()">Export</button>
         <button class="btn" onclick="document.getElementById('imp').click()">Import</button>
@@ -552,6 +558,12 @@
       <span class="filter-hint">Les filtres sont combinables.</span>
     </div>
     <div class="board" id="board"></div>
+    <dialog id="archiveDialog" aria-labelledby="archiveTitle">
+      <h2 id="archiveTitle">Tâches archivées</h2>
+      <p class="settings-hint">Les tâches archivées sont conservées dans vos sauvegardes JSON. Elles ne figurent plus sur le tableau.</p>
+      <div id="archiveList"></div>
+      <button class="btn btn-primary" type="button" onclick="closeDialog('archiveDialog')">Fermer</button>
+    </dialog>
     <dialog id="helpDialog" aria-labelledby="helpTitle">
       <h2 id="helpTitle">Aide · CORE_KANBAN</h2>
       <p>Organisez vos tâches dans les colonnes, avec les priorités P1, P2 et P3.</p>
@@ -579,6 +591,48 @@
 
     <script>
 const DB_KEY = "kanban_universal_db";
+      function validArchivedAt(value) {
+        return value === undefined || (typeof value === "string" &&
+          !Number.isNaN(Date.parse(value)) && new Date(value).toISOString() === value);
+      }
+      function archiveTask(id) {
+        const task = data.tasks.find((item) => item.id === id);
+        if (!task || !task.completed || task.archivedAt) return;
+        const next = deepCopy(data);
+        next.tasks.find((item) => item.id === id).archivedAt = new Date().toISOString();
+        saveState(next);
+      }
+      function restoreArchivedTask(id) {
+        const task = data.tasks.find((item) => item.id === id);
+        if (!task?.archivedAt) return;
+        const next = deepCopy(data);
+        delete next.tasks.find((item) => item.id === id).archivedAt;
+        saveState(next);
+        renderArchives();
+      }
+      function openArchives() {
+        renderArchives();
+        openDialog("archiveDialog");
+      }
+      function renderArchives() {
+        const list = document.getElementById("archiveList");
+        if (!list) return;
+        list.replaceChildren();
+        const archived = data.tasks.filter((task) => Boolean(task.archivedAt));
+        if (!archived.length) {
+          list.appendChild(element("p", "archive-empty", "Aucune tâche archivée."));
+          return;
+        }
+        for (const task of archived) {
+          const entry = element("div", "archive-entry");
+          entry.appendChild(element("div", "archive-entry-text", task.text));
+          entry.appendChild(element("div", "settings-hint", "Archivée le " + task.archivedAt.slice(0, 10)));
+          const actions = element("div", "archive-entry-actions");
+          actions.appendChild(button("↩", "Restaurer la tâche", () => restoreArchivedTask(task.id)));
+          entry.appendChild(actions);
+          list.appendChild(entry);
+        }
+      }
       const ADVANCED_FILTER_KEY = "kanban_advanced_filters_v52";
       const DEFAULT_ADVANCED_FILTERS = { label: "all", status: "all", due: "all", sort: "default" };
       function readAdvancedFilters() {
@@ -613,6 +667,7 @@ const DB_KEY = "kanban_universal_db";
       function filteredTasks(query) {
         const today = todayLocal();
         const selected = data.tasks.filter((task) => {
+          if (task.archivedAt) return false;
           if (!task.text.toLowerCase().includes(query)) return false;
           if (priorityFilter !== "all" && String(task.prio) !== priorityFilter) return false;
           if (advancedFilters.label !== "all" && !(task.labels || []).includes(advancedFilters.label)) return false;
@@ -634,7 +689,7 @@ const DB_KEY = "kanban_universal_db";
       function updateFilterControls() {
         const labelSelect = document.getElementById("labelFilter");
         if (!labelSelect) return;
-        const available = [...new Set(data.tasks.flatMap((task) => task.labels || []))].sort((a, b) => a.localeCompare(b, "fr"));
+        const available = [...new Set(data.tasks.filter((task) => !task.archivedAt).flatMap((task) => task.labels || []))].sort((a, b) => a.localeCompare(b, "fr"));
         if (advancedFilters.label !== "all" && !available.includes(advancedFilters.label)) advancedFilters.label = "all";
         labelSelect.replaceChildren();
         const all = element("option", "", "Toutes");
@@ -855,7 +910,7 @@ const DB_KEY = "kanban_universal_db";
           if (!isObject(task) || !validId(task.id) || ids.has(String(task.id)) ||
               typeof task.text !== "string" || !validPriority(task.prio) ||
               !value.columns.includes(task.status) || typeof task.completed !== "boolean" ||
-              !validDueDate(task.dueDate) || !validLabels(task.labels)) {
+              !validDueDate(task.dueDate) || !validLabels(task.labels) || !validArchivedAt(task.archivedAt)) {
             throw new Error("Tâche invalide, identifiant dupliqué ou statut inconnu");
           }
           ids.add(String(task.id));
@@ -1028,6 +1083,8 @@ const DB_KEY = "kanban_universal_db";
         const targets = new Map();
         updateFilterControls();
         const visibleTasks = filteredTasks(query);
+        const archiveCount = document.getElementById("archiveCount");
+        if (archiveCount) archiveCount.textContent = "(" + data.tasks.filter((task) => task.archivedAt).length + ")";
 
         if (board.classList?.toggle) board.classList.toggle("compact-board", boardView === "compact");
         document.getElementById("viewCompact")?.setAttribute?.("aria-pressed", String(boardView === "compact"));
@@ -1165,6 +1222,9 @@ const DB_KEY = "kanban_universal_db";
             actions.appendChild(button("💾", "Sauver", () => updateTaskText(task.id)));
             actions.appendChild(button("❌", "Annuler", () => { editingTaskId = null; render(); }));
           } else {
+            if (task.completed) {
+              actions.appendChild(button("📦", "Archiver la tâche terminée", () => archiveTask(task.id)));
+            }
             actions.appendChild(button("📝", "Modifier", () => { editingTaskId = task.id; render(); }));
             actions.appendChild(button("👯", "Dupliquer", () => duplicateTask(task.id)));
             actions.appendChild(button("🗑️", "Supprimer", () => {
