@@ -9,7 +9,7 @@ assert.ok(script);
 
 function dateFunctions() {
   const from = script.indexOf("function validDueDate(value)");
-  const to = script.indexOf("const TRASH_KEY", from);
+  const to = script.indexOf("const THEME_PREFERENCE_KEY", from);
   assert.ok(from >= 0 && to > from);
   const functions = script.slice(from, to);
   const context = { Date };
