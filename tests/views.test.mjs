@@ -12,6 +12,7 @@ function boot(initialPreferences = {}) {
   const elements = new Map();
   const createElement = (tag) => ({
     tag,
+    value: "",
     children: [],
     style: {},
     classList: { add() {}, remove() {}, toggle() {} },
