@@ -571,8 +571,8 @@
         <li><strong>?</strong> : ouvrir cette aide (hors champ de saisie).</li>
         <li><strong>Échap</strong> : fermer l'aide ou les réglages.</li>
         <li><strong>Ctrl/⌘ + Entrée</strong> : ajouter une tâche depuis le champ de saisie.</li>
-        <li><strong>Vue compacte</strong> : déplacer une tâche avec les boutons ← et →, au clavier ou au tactile.</li>
-        <li><strong>Vue détaillée</strong> : utiliser les boutons de déplacement et les zones de priorité.</li>
+        <li><strong>Vue compacte</strong> : déplacer une tâche à la souris par glisser-déposer.</li>
+        <li><strong>Vue détaillée</strong> : déplacer une tâche à la souris vers une colonne ou une zone de priorité.</li>
         <li><strong>Annuler</strong> : revenir sur une modification récente ; <strong>Restaurer</strong> : récupérer une suppression.</li>
       </ul>
       <button class="btn btn-primary" type="button" onclick="closeDialog('helpDialog')">Fermer</button>
@@ -1149,18 +1149,6 @@ const DB_KEY = "kanban_universal_db";
           if (boardView === "compact") {
             card.appendChild(element("div", "card-meta", "P" + task.prio + (task.completed ? " · DONE" : " · ACTIF")));
           }
-          const currentIndex = data.columns.indexOf(task.status);
-          const moveActions = element("div", "card-move-actions");
-          for (const direction of [-1, 1]) {
-            const move = element("button", "btn", direction === -1 ? "←" : "→");
-            move.type = "button";
-            move.title = direction === -1 ? "Déplacer vers la colonne précédente" : "Déplacer vers la colonne suivante";
-            move.setAttribute?.("aria-label", move.title);
-            move.disabled = currentIndex + direction < 0 || currentIndex + direction >= data.columns.length;
-            move.addEventListener("click", () => moveTask(task.id, direction));
-            moveActions.appendChild(move);
-          }
-          card.appendChild(moveActions);
           const content = element("div", "card-text");
           let total = 0;
           let checked = 0;
@@ -1239,9 +1227,9 @@ const DB_KEY = "kanban_universal_db";
             }));
           }
           footer.appendChild(actions);
-          const info = element("span", "", total > 0 && !editing ? checked + "/" + total : "#" + String(task.id).slice(-4));
+          const info = element("span", "", total > 0 && !editing ? checked + "/" + total : "");
           info.style.cssText = "font-size:0.65rem;font-weight:bold;opacity:0.6";
-          footer.appendChild(info);
+          if (total > 0 && !editing) footer.appendChild(info);
           card.appendChild(footer);
           target.appendChild(card);
         }
