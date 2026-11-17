@@ -1024,6 +1024,12 @@ const DB_KEY = "kanban_universal_db";
         const next = deepCopy(data);
         const updated = next.tasks.find((item) => item.id === taskId);
         updated.text = editor.value;
+        const priorityEditor = document.querySelector(".card.editing .edit-priority");
+        if (priorityEditor) {
+          const priority = Number(priorityEditor.value);
+          if (!validPriority(priority)) return;
+          updated.prio = priority;
+        }
         const dateEditor = document.querySelector(".card.editing .edit-due-date");
         if (dateEditor) {
           if (!validDueDate(dateEditor.value)) return;
@@ -1158,6 +1164,17 @@ const DB_KEY = "kanban_universal_db";
             editor.rows = 5;
             editor.value = task.text;
             content.appendChild(editor);
+            const priorityLabel = element("label", "", "Priorité");
+            const priorityEditor = element("select", "edit-priority btn");
+            priorityEditor.setAttribute("aria-label", "Priorité de la tâche");
+            for (const [value, label] of [[1, "P1 — Haute"], [2, "P2 — Moyenne"], [3, "P3 — Basse"]]) {
+              const option = element("option", "", label);
+              option.value = String(value);
+              priorityEditor.appendChild(option);
+            }
+            priorityEditor.value = String(task.prio);
+            priorityLabel.appendChild(priorityEditor);
+            content.appendChild(priorityLabel);
             const dateEditor = element("input", "edit-due-date btn");
             dateEditor.type = "date";
             dateEditor.value = task.dueDate || "";
